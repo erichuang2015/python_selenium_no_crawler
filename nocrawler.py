@@ -323,6 +323,8 @@ class NoCrawler(object):
             #         driver.execute_script("arguments[0].click();", next_page)
                     
             # crawl data from urls of type_2
+        # self.url_type_2_list = ['https://www.millsmotors.net']
+        
         for url in self.url_type_2_list:
             
             driver.get(url)
@@ -352,8 +354,13 @@ class NoCrawler(object):
                 for i in range(vehicles_count_per_page):
                     
                     script = 'return document.getElementsByClassName("list-group-item container-fluid dws-no-h-padding dws-vehicle-listing-item")[' + str(i) + '].getElementsByClassName("dws-vehicle-image-container lozad")[0].getAttribute("title")'
-                    vehicle_title = driver.execute_script(script)
-                    
+                    try:
+                        vehicle_title = driver.execute_script(script)
+                        time.sleep(1)
+                    except:
+                        log_content = "can't find " + '  ' + vehicle_title
+                        self.insert_error_log(page_url, log_content)
+                        pass
                     # quit current driver to change the proxy ip address
                     driver.quit()
                     
@@ -414,9 +421,7 @@ class NoCrawler(object):
                             writer.writerow(row)
                         
                         # back to listing page
-                        back_link_script = '//a[@class="dws-inv-back-link"]'
-                        back_link = driver.find_element_by_xpath(back_link_script)
-                        driver.execute_script("arguments[0].click();", back_link)
+                        driver.execute_script("window.history.go(-1)")
                         
                     except:
                         log_content = 'detail page error' + '  ' + vehicle_title
