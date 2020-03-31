@@ -15,6 +15,7 @@ from datetime import datetime
 import time
 import csv
 import re
+import requests
 
 class DwsCrawler(object):
     
@@ -31,6 +32,8 @@ class DwsCrawler(object):
         self.inventory_page_urls = list()
         
         self.detail_page_urls = list()
+        
+        self.inventory_match_contents = list()
         
         self.initialize()
     
@@ -49,6 +52,8 @@ class DwsCrawler(object):
         self.get_detail_page_urls()
         
         self.get_not_crawlable_urls()
+        
+        self.get_inventory_match_content()
         
     '''
     @ description: set output filename like "2020-01-01.csv"
@@ -240,6 +245,50 @@ class DwsCrawler(object):
         return False
     
     '''
+    @ description: get inventory matching content
+    '''
+    def get_inventory_match_content(self, url_list_path = None):
+        
+        path = ""
+        if url_list_path != None:
+            path = url_list_path
+        else:
+            path = "utilites/inventory_match_content.txt"
+            
+        with open(path, "r") as file:
+            self.inventory_match_contents = file.readlines()    
+            return True
+
+        return False
+    
+    '''
+    '''
+    def get_inventory_href(self, html):
+        
+        matched_result_list = re.findall("(href[=| = ][\"|\'].*)</a>", html)
+        
+        for matched_result in matched_result_list:
+            
+            for inventory_content in self.inventory_match_contents:
+                
+                content = '>' + inventory_content + '<'
+                
+                if content in matched_result:
+                    
+                    space_removed_result = matched_result.replace(' ', '')
+                    
+                    wrapped_character_start = space_removed_result[5]
+                    
+                    space_removed_result = space_removed_result[6:]
+                    
+                    wrapped_character_end_position = space_removed_result.find(wrapped_character_start)
+                    
+                    return space_removed_result[:wrapped_character_end_position - 1]
+        
+        return None
+    
+    
+    '''
     @ description: main function to crawl
     @ params:
     @ return:
@@ -248,34 +297,34 @@ class DwsCrawler(object):
         
         self.set_chrome_option()
         
+        proxy_http = "http://" + self.get_random_proxy()        
+        
+        webdriver.DesiredCapabilities.CHROME['proxy'] = {
+            "httpProxy":proxy_http,
+            "ftpProxy":proxy_http,
+            "sslProxy":proxy_http,
+            "proxyType":"MANUAL",
+        }    
+        
+        driver = webdriver.Chrome(options = self.chrome_opt)
+        
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
         for url in self.not_crawlable_urls:
             
-            for inventory_url in self.inventory_page_urls:
+            driver.get(url)
+            
+            element = driver.find_element_by_tag_name('html')
+            
+            html = element.get_attribute('innerHTML')
+            
+            inventory_href = self.get_inventory_href(html)
+            
+            if inventory_href != None:
                 
-                inventory_page_full_url = url.rstrip() + inventory_url
-                
-                print ('--------------------------')
-                print (inventory_page_full_url)
-                print ('--------------------------')
-                
-                proxy_http = "http://" + self.get_random_proxy()        
-        
-                webdriver.DesiredCapabilities.CHROME['proxy'] = {
-                    "httpProxy":proxy_http,
-                    "ftpProxy":proxy_http,
-                    "sslProxy":proxy_http,
-                    "proxyType":"MANUAL",
-                }    
-                
-                driver = webdriver.Chrome(options = self.chrome_opt)
-                
-                if driver.get(inventory_page_full_url):
-                    
-                    with open('/log/inventory_page_full_url', 'a') as file_object:
-                        file_object.write(inventory_page_full_url)
-                
+                with open('log/href.txt', 'a') as file_object:
+                    content = url.rstrip() + '  ' + inventory_href + '  ' + url.rstrip() + inventory_href
+                    file_object.write(content)
                 
         # self.remove_duplicated_info()        
                 
