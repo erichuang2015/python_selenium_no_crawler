@@ -263,6 +263,20 @@ class DwsCrawler(object):
     
     '''
     '''
+    def extract_href(self, matched_result):
+        
+        space_removed_result = matched_result.replace(' ', '')
+                    
+        wrapped_character_start = space_removed_result[5]
+        
+        space_removed_result = space_removed_result[6:]
+        
+        wrapped_character_end_position = space_removed_result.find(wrapped_character_start)
+        
+        return space_removed_result[:wrapped_character_end_position - 1]
+    
+    '''
+    '''
     def get_inventory_href(self, html):
         
         matched_result_list = re.findall("(href[=| = ][\"|\'].*</a>)", html)
@@ -275,18 +289,33 @@ class DwsCrawler(object):
                 
                 if content in matched_result:
                     
-                    space_removed_result = matched_result.replace(' ', '')
-                    
-                    wrapped_character_start = space_removed_result[5]
-                    
-                    space_removed_result = space_removed_result[6:]
-                    
-                    wrapped_character_end_position = space_removed_result.find(wrapped_character_start)
-                    
-                    return space_removed_result[:wrapped_character_end_position - 1]
+                    return self.extract_href(matched_result)
         
         return None
     
+    
+    
+    '''
+    '''
+    def get_detail_page_href_list(self, inventory_href, vehicle_html):
+        
+        matched_result_list = re.findall("(href[=| = ][\"|\'].*</a>)", vehicle_html)
+        
+        href_list = list()
+        
+        for matched_result in matched_result_list:
+            
+            for vehicle in self.detail_page_urls:
+                
+                href = self.extract_href(matched_result)
+                
+                if href != inventory_href and vehicle in href:
+                    
+                    href_list.append(href)
+                    
+                    break
+        
+        return href_list
     
     '''
     @ description: main function to crawl
@@ -314,17 +343,56 @@ class DwsCrawler(object):
             
             driver.get(url)
             
-            element = driver.find_element_by_tag_name('html')
+            inventory_element = driver.find_element_by_tag_name('html')
             
-            html = element.get_attribute('innerHTML')
+            inventory_html = inventory_element.get_attribute('innerHTML')
             
-            inventory_href = self.get_inventory_href(html)
+            inventory_href = self.get_inventory_href(inventory_html)
+            
+            print ('--------------------------')
+            
+            print (inventory_href)
+            
+            print ('--------------------------')
             
             if inventory_href != None:
                 
+                if 'http' in inventory_href:
+                    inventory_url = inventory_href
+                else:
+                    inventory_url = url.rstrip() + inventory_href
+                    
                 with open('href.txt', 'a') as file_object:
-                    content = url.rstrip() + '  ' + inventory_href + '  ' + url.rstrip() + inventory_href
+                    content = inventory_url + '\n'
                     file_object.write(content)
+                    
+                proxy_http = "http://" + self.get_random_proxy()        
+        
+                webdriver.DesiredCapabilities.CHROME['proxy'] = {
+                    "httpProxy":proxy_http,
+                    "ftpProxy":proxy_http,
+                    "sslProxy":proxy_http,
+                    "proxyType":"MANUAL",
+                }    
+                
+                driver = webdriver.Chrome(options = self.chrome_opt)
+                
+                vehicle_element = driver.find_element_by_tag_name('html')
+                
+                vehicle_html = vehicle_element.get_attribute('innerHTML')
+                
+                vehicle_href_list = self.get_detail_page_href_list(inventory_href, vehicle_html)
+                
+                if len(vehicle_href_list) != 0:
+                    
+                    with open('vehicle_href.txt', 'a') as file_object:
+                        
+                        for vehicle_href in vehicle_href_list:
+                            
+                            content = inventory_url + ' ' + vehicle_href + '\n'
+                            file_object.write(content)
+                
+                
                 
         # self.remove_duplicated_info()        
                 
