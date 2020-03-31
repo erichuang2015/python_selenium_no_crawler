@@ -323,7 +323,7 @@ class NoCrawler(object):
             #         driver.execute_script("arguments[0].click();", next_page)
                     
             # crawl data from urls of type_2
-        # self.url_type_2_list = ['https://www.millsmotors.net']
+        self.url_type_2_list = ['https://www.millsmotors.net']
         
         for url in self.url_type_2_list:
             
@@ -335,11 +335,32 @@ class NoCrawler(object):
             
             page_url = inventory_url
             
-            driver.get(page_url)
+            page_url = 'https://www.millsmotors.net/inventory/toyota/corolla/3043/'
+            
+            driver.get('https://skylineimportsonline.com/inventory/39305/view/1143/Spartanburg-SC/2011-Nissan-Rogue')
+            
+
+            # element = driver.find_element_by_class_name('contentContainer')
+            element = driver.find_element_by_tag_name('html')
+            
+            html = element.get_attribute('innerHTML')
+            driver.close()
+            # print(html)
+            
+            # driver.get(page_url)
+            
+            with open('123.txt', 'w') as file_object:
+                file_object.write(html)
             
             time.sleep(1)
             
+            return
+            
             vehicle_count = 0
+            
+            # dom_element_script = 'return domJSON.toJSON(document.getElementById("menu-main-menu"))'
+            
+            return
             
             while True:
                 
@@ -464,7 +485,7 @@ class NoCrawler(object):
                 
                 else:
                     log_content = 'vehicle total count' + '    ' + str(vehicle_count) + '   ' + 'end'
-                    self.insert_success_log(url, log_content)
+                    self.insert_success_log(url.rstrip(), log_content)
                     break
                 
                 
