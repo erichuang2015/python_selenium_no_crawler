@@ -265,13 +265,13 @@ class DwsCrawler(object):
     '''
     def get_inventory_href(self, html):
         
-        matched_result_list = re.findall("(href[=| = ][\"|\'].*)</a>", html)
+        matched_result_list = re.findall("(href[=| = ][\"|\'].*</a>)", html)
         
         for matched_result in matched_result_list:
             
             for inventory_content in self.inventory_match_contents:
                 
-                content = '>' + inventory_content + '<'
+                content = '>' + inventory_content.rstrip() + '<'
                 
                 if content in matched_result:
                     
@@ -322,7 +322,7 @@ class DwsCrawler(object):
             
             if inventory_href != None:
                 
-                with open('log/href.txt', 'a') as file_object:
+                with open('href.txt', 'a') as file_object:
                     content = url.rstrip() + '  ' + inventory_href + '  ' + url.rstrip() + inventory_href
                     file_object.write(content)
                 
