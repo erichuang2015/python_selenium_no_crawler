@@ -35,6 +35,10 @@ class DwsCrawler(object):
         
         self.inventory_match_contents = list()
         
+        self.not_detail_url_content = list()
+        
+        self.page_next_class()
+        
         self.initialize()
     
     '''
@@ -54,6 +58,10 @@ class DwsCrawler(object):
         self.get_not_crawlable_urls()
         
         self.get_inventory_match_content()
+        
+        self.get_not_detail_url_content()
+        
+        self.get_page_next_button_class()
         
     '''
     @ description: set output filename like "2020-01-01.csv"
@@ -269,6 +277,40 @@ class DwsCrawler(object):
         return False
     
     '''
+    @ description: get inventory matching content
+    '''
+    def get_not_detail_url_content(self, url_list_path = None):
+        
+        path = ""
+        if url_list_path != None:
+            path = url_list_path
+        else:
+            path = "utilites/not_detail_url_match.txt"
+            
+        with open(path, "r") as file:
+            self.not_detail_url_content = file.readlines()    
+            return True
+
+        return False
+    
+    '''
+    @ description: get page next button class pattern 
+    '''
+    def get_page_next_button_class(self, url_list_path = None):
+        
+        path = ""
+        if url_list_path != None:
+            path = url_list_path
+        else:
+            path = "utilites/page_next_pattern.txt"
+            
+        with open(path, "r") as file:
+            self.page_next_class = file.readlines()    
+            return True
+
+        return False
+    
+    '''
     '''
     def extract_href(self, matched_result):
         
@@ -281,6 +323,20 @@ class DwsCrawler(object):
         wrapped_character_end_position = space_removed_result.find(wrapped_character_start)
         
         return space_removed_result[:wrapped_character_end_position - 1]
+    
+    '''
+    '''
+    def real_protocol(self, url, page_url):
+        
+        http_protocol = url[:url.find('/')]
+        
+        page_http_protocol = page_url[:page_url.find('/')]
+        
+        if http_protocol != page_http_protocol:
+            
+            page_url = page_url.replace(page_http_protocol, http_protocol)
+        
+        return page_url
     
     '''
     '''
@@ -336,7 +392,11 @@ class DwsCrawler(object):
                 
                 if href != inventory_href and detail_page.rstrip() in href:
                     
-                    href_list.append(href)
+                    for not_detail_page in self.not_detail_url_content:
+                    
+                        if not_detail_page.rstrip() not in href:
+                            
+                            href_list.append(href)
                     
                     
         href_list = self.remove_duplicated_item_from_list(href_list)
@@ -363,10 +423,9 @@ class DwsCrawler(object):
         
         driver = webdriver.Chrome(options = self.chrome_opt)
         
-        driver.set_page_load_timeout(30)
+        # driver.set_page_load_timeout(30)
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
-        
         
         for url in self.not_crawlable_urls:
             
@@ -376,6 +435,8 @@ class DwsCrawler(object):
                 if (url_status_code == 200):
                 
                     driver.get(url)
+                    
+                    url = driver.current_url
                     
                     inventory_element = driver.find_element_by_tag_name('html')
                     
@@ -398,6 +459,10 @@ class DwsCrawler(object):
                             else:
                                 inventory_url = url.rstrip() + inventory_href
                                 
+                            inventory_url = self.real_protocol(url, inventory_url)
+                                
+                            # inventory_url = inventory_url.replace('//', '/')
+                                
                             with open('log/href.txt', 'a') as file_object:
                                 content = inventory_url + '\n'
                                 file_object.write(content)
@@ -413,7 +478,7 @@ class DwsCrawler(object):
                             
                             driver = webdriver.Chrome(options = self.chrome_opt)
                             
-                            driver.set_page_load_timeout(30)
+                            # driver.set_page_load_timeout(30)
                             
                             try:
                                 
@@ -422,6 +487,16 @@ class DwsCrawler(object):
                                 if inventory_url_status_code == 200:
                                     
                                     driver.get(inventory_url)
+                                    
+                                    SCROLL_PAUSE_TIME = 0.5
+                                    
+                                    # Scroll down to bottom
+                                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                                    
+                                    # Wait to load page
+                                    time.sleep(SCROLL_PAUSE_TIME)
+    
+                                    inventory_url = driver.current_url
                                 
                                     vehicle_element = driver.find_element_by_tag_name('html')
                                     
@@ -437,7 +512,17 @@ class DwsCrawler(object):
                                             
                                             for vehicle_href in vehicle_href_list:
                                                 
-                                                content = inventory_url + ' ' + vehicle_href + '\n'
+                                                if 'http' in vehicle_href:
+                                                    vehicle_url = vehicle_href
+                                                else:
+                                                    vehicle_url = url.rstrip() + vehicle_href
+                                                    
+                                                vehicle_url = self.real_protocol(url, vehicle_url)
+                                                
+                                                vehicle_url = vehicle_url.replace('//', '/')
+                                                vehicle_url = vehicle_url.replace(':/', '://')
+                                                
+                                                content = inventory_url + ' ' + vehicle_url + '\n'
                                                 file_object.write(content)
                                                 
                                         print ('+++++++++++++++++++++++++++++++')
@@ -458,7 +543,7 @@ class DwsCrawler(object):
                                 print ('connection error')
                                 log_content = inventory_url + ' ' + 'connection error'
                                 self.insert_error_log(url.rstrip(), log_content)
-                                pass 
+                                
                 else:
                     
                     print (url_status_code)
@@ -469,7 +554,7 @@ class DwsCrawler(object):
                 print ('connection error')
                 log_content = 'connection error'
                 self.insert_error_log(url.rstrip(), log_content)
-                pass
+                
                 
                 
                 
