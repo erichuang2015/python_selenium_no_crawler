@@ -228,6 +228,13 @@ class DwsCrawler(object):
         return False
     
     '''
+    '''
+    def remove_duplicated_item_from_list(self, duplicated_list):
+        
+        return list(dict.fromkeys(duplicated_list))
+    
+    
+    '''
     @ description: get detail page urls (sub url such as "/inventory-details/")
     '''
     def get_detail_page_urls(self, url_list_path = None):
@@ -296,6 +303,9 @@ class DwsCrawler(object):
                     inventory_href = self.check_inventory_href(inventory_href)
                     
                     inventory_href_list.append(inventory_href)
+                    
+        
+        inventory_href_list = self.remove_duplicated_item_from_list(inventory_href_list)
         
         return inventory_href_list
     
@@ -320,15 +330,16 @@ class DwsCrawler(object):
         
         for matched_result in matched_result_list:
             
-            for vehicle in self.detail_page_urls:
+            for detail_page in self.detail_page_urls:
                 
                 href = self.extract_href(matched_result)
                 
-                if href != inventory_href and vehicle in href:
+                if href != inventory_href and detail_page.rstrip() in href:
                     
                     href_list.append(href)
                     
-                    break
+                    
+        href_list = self.remove_duplicated_item_from_list(href_list)
         
         return href_list
     
@@ -352,84 +363,113 @@ class DwsCrawler(object):
         
         driver = webdriver.Chrome(options = self.chrome_opt)
         
+        driver.set_page_load_timeout(30)
+        
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
         
         for url in self.not_crawlable_urls:
             
-            url_status_code = requests.get(url).status_code
+            try:
+                url_status_code = requests.get(url.rstrip()).status_code
             
-            if (url_status_code == 200):
-            
-                driver.get(url)
+                if (url_status_code == 200):
                 
-                inventory_element = driver.find_element_by_tag_name('html')
-                
-                inventory_html = inventory_element.get_attribute('innerHTML')
-                
-                inventory_href_list = self.get_inventory_href(inventory_html)
-                
-                print ('--------------------------')
-                
-                print (inventory_href_list)
-                
-                print ('--------------------------')
-                
-                if len(inventory_href_list) != 0:
+                    driver.get(url)
                     
-                    for inventory_href in inventory_href_list:
+                    inventory_element = driver.find_element_by_tag_name('html')
                     
-                        if 'http' in inventory_href:
-                            inventory_url = inventory_href
-                        else:
-                            inventory_url = url.rstrip() + inventory_href
-                            
-                        with open('log/href.txt', 'a') as file_object:
-                            content = inventory_url + '\n'
-                            file_object.write(content)
-                            
-                        proxy_http = "http://" + self.get_random_proxy()        
-                
-                        webdriver.DesiredCapabilities.CHROME['proxy'] = {
-                            "httpProxy":proxy_http,
-                            "ftpProxy":proxy_http,
-                            "sslProxy":proxy_http,
-                            "proxyType":"MANUAL",
-                        }    
+                    inventory_html = inventory_element.get_attribute('innerHTML')
+                    
+                    inventory_href_list = self.get_inventory_href(inventory_html)
+                    
+                    print ('--------------------------')
+                    
+                    print (inventory_href_list)
+                    
+                    print ('--------------------------')
+                    
+                    if len(inventory_href_list) != 0:
                         
-                        driver = webdriver.Chrome(options = self.chrome_opt)
+                        for inventory_href in inventory_href_list:
                         
-                        inventory_url_status_code = requests.get(inventory_url).status_code
-                        
-                        if inventory_url_status_code == 200:
-                            
-                            driver.get(inventory_url)
-                        
-                            vehicle_element = driver.find_element_by_tag_name('html')
-                            
-                            vehicle_html = vehicle_element.get_attribute('innerHTML')
-                            
-                            vehicle_href_list = self.get_detail_page_href_list(inventory_href, vehicle_html)
-                            
-                            if len(vehicle_href_list) != 0:
-                                
-                                print ('first page vehicle count = ', len(vehicle_href_list))
-                                
-                                with open('log/vehicle_href.txt', 'a') as file_object:
-                                    
-                                    for vehicle_href in vehicle_href_list:
-                                        
-                                        content = inventory_url + ' ' + vehicle_href + '\n'
-                                        file_object.write(content)
+                            if 'http' in inventory_href:
+                                inventory_url = inventory_href
                             else:
+                                inventory_url = url.rstrip() + inventory_href
                                 
-                                print ('no vehicle')
-                        else:
+                            with open('log/href.txt', 'a') as file_object:
+                                content = inventory_url + '\n'
+                                file_object.write(content)
+                                
+                            proxy_http = "http://" + self.get_random_proxy()        
+                    
+                            webdriver.DesiredCapabilities.CHROME['proxy'] = {
+                                "httpProxy":proxy_http,
+                                "ftpProxy":proxy_http,
+                                "sslProxy":proxy_http,
+                                "proxyType":"MANUAL",
+                            }    
                             
-                            print (inventory_url_status_code)        
-            else:
-                
-                print (url_status_code)
+                            driver = webdriver.Chrome(options = self.chrome_opt)
+                            
+                            driver.set_page_load_timeout(30)
+                            
+                            try:
+                                
+                                inventory_url_status_code = requests.get(inventory_url).status_code
+                                
+                                if inventory_url_status_code == 200:
+                                    
+                                    driver.get(inventory_url)
+                                
+                                    vehicle_element = driver.find_element_by_tag_name('html')
+                                    
+                                    vehicle_html = vehicle_element.get_attribute('innerHTML')
+                                    
+                                    vehicle_href_list = self.get_detail_page_href_list(inventory_href, vehicle_html)
+                                    
+                                    if len(vehicle_href_list) != 0:
+                                        
+                                        print ('first page vehicle count = ', len(vehicle_href_list))
+                                        
+                                        with open('log/vehicle_href.txt', 'a') as file_object:
+                                            
+                                            for vehicle_href in vehicle_href_list:
+                                                
+                                                content = inventory_url + ' ' + vehicle_href + '\n'
+                                                file_object.write(content)
+                                                
+                                        print ('+++++++++++++++++++++++++++++++')
+                                        
+                                    else:
+                                        
+                                        print ('no vehicle')
+                                        log_content = inventory_url + ' ' + 'no vehicle'
+                                        self.insert_error_log(url.rstrip(), log_content)
+                                else:
+                                    
+                                    print (inventory_url_status_code)   
+                                    
+                                    log_content = inventory_url + ' ' + str(inventory_url_status_code)
+                                    self.insert_error_log(url.rstrip(), log_content)   
+                                    
+                            except:
+                                print ('connection error')
+                                log_content = inventory_url + ' ' + 'connection error'
+                                self.insert_error_log(url.rstrip(), log_content)
+                                pass 
+                else:
+                    
+                    print (url_status_code)
+                    
+                    log_content = str(url_status_code)
+                    self.insert_error_log(url.rstrip(), log_content)
+            except:
+                print ('connection error')
+                log_content = 'connection error'
+                self.insert_error_log(url.rstrip(), log_content)
+                pass
                 
                 
                 
