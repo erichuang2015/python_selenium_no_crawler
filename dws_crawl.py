@@ -440,6 +440,17 @@ class DwsCrawler(object):
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
+        # driver.get('https://www.inlaneauto.com/inventory/?page_no=9')
+        
+        # element = driver.find_element_by_tag_name('html')
+            
+        # html = element.get_attribute('innerHTML')
+        
+        # with open('page_test.txt', 'w') as file_object:
+        #     file_object.write(html)
+            
+        # return
+        
         for url in self.not_crawlable_urls:
             
             pagination = False
@@ -592,6 +603,10 @@ class DwsCrawler(object):
                                 pagination = True
                                 
                                 page_count += 1
+                                
+                                url = driver.current_url
+                                
+                                driver.get(url)
                                     
                             else:
                                     
