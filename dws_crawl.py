@@ -342,15 +342,20 @@ class DwsCrawler(object):
     '''
     def get_inventory_href(self, html):
         
-        matched_result_list = re.findall("(href[=| = ][\"|\'].*</a>)", html)
+        html_content = re.sub('\s+', ' ', html)
+        html_content = re.sub('\<\/a\>', '</a>\n', html_content)
+        
+        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>[\s\n]*\<\/a\>)", html_content)
         
         inventory_href_list = list()
         
         for matched_result in matched_result_list:
             
+            matched_result = matched_result.replace(' ', '')
+            
             for inventory_content in self.inventory_match_contents:
                 
-                content = '>' + inventory_content.rstrip() + '<'
+                content = '>' + inventory_content.strip() + '<'
                 
                 if content in matched_result:
                     
@@ -380,7 +385,10 @@ class DwsCrawler(object):
     '''
     def get_detail_page_href_list(self, inventory_href, vehicle_html):
         
-        matched_result_list = re.findall("(href[=| = ][\"|\'].*</a>)", vehicle_html)
+        html_content = re.sub('\s+', ' ', html)
+        html_content = re.sub('\<\/a\>', '</a>\n', html_content)
+        
+        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>[\s\n]*\<\/a\>)", html_content)
         
         href_list = list()
         
@@ -440,16 +448,7 @@ class DwsCrawler(object):
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
-        # driver.get('https://www.inlaneauto.com/inventory/?page_no=9')
-        
-        # element = driver.find_element_by_tag_name('html')
-            
-        # html = element.get_attribute('innerHTML')
-        
-        # with open('page_test.txt', 'w') as file_object:
-        #     file_object.write(html)
-            
-        # return
+        self.not_crawlable_urls = ['https://www.nfiempire.com/']
         
         for url in self.not_crawlable_urls:
             
@@ -458,30 +457,46 @@ class DwsCrawler(object):
             page_count = 1
             
             redirect_url = True
+            
+            pagination_url = url.rstrip()
                 
             while True:
                 
                 try:
-                    url_status_code = requests.get(url.rstrip()).status_code
+                    url_status_code = requests.get(pagination_url).status_code
                 
                     if (url_status_code == 200):
                         
                         if pagination == False:
-                    
-                            driver.get(url)
+                            
+                            driver.delete_all_cookies()
+                            
+                            driver.get(pagination_url)
                         
                         if redirect_url:
                             
                             url = driver.current_url
 
                             redirect_url = False
+                            
+                        print ('***************************')
+                        print (driver.current_url)
+                        print ('***************************')
                         
                         inventory_element = driver.find_element_by_tag_name('html')
                         
                         inventory_html = inventory_element.get_attribute('innerHTML')
                         
-                        inventory_href_list = self.get_inventory_href(inventory_html)
+                        inventory_href_list = list()
                         
+                        if pagination == False:
+                            inventory_href_list = self.get_inventory_href(inventory_html)
+                        else:
+                            inventory_href_list.append(pagination_url)
+                        
+                        print ('===============================')
+                        print (inventory_href_list)
+                        print ('===============================')
                         
                         if len(inventory_href_list) != 0:
                             
@@ -530,6 +545,8 @@ class DwsCrawler(object):
                                         time.sleep(SCROLL_PAUSE_TIME)
         
                                         inventory_url = driver.current_url
+                                        
+                                        print (inventory_url)
                                     
                                         vehicle_element = driver.find_element_by_tag_name('html')
                                         
@@ -558,7 +575,7 @@ class DwsCrawler(object):
                                                     content = inventory_url + ' ' + vehicle_url + '\n'
                                                     file_object.write(content)
                                                     
-                                            print ('+++++++++++++++++++++++++++++++')
+                                            # print ('+++++++++++++++++++++++++++++++')
                                             
                                         else:
                                             
@@ -600,13 +617,17 @@ class DwsCrawler(object):
                                 
                                 driver.execute_script("arguments[0].click();", next_page_link)
                                 
+                                time.sleep(1)
+                                
                                 pagination = True
                                 
                                 page_count += 1
                                 
-                                url = driver.current_url
+                                pagination_url = driver.current_url
                                 
-                                driver.get(url)
+                                driver.delete_all_cookies()
+                                
+                                driver.get(pagination_url)
                                     
                             else:
                                     
@@ -617,7 +638,15 @@ class DwsCrawler(object):
                                 pagination = False
                                 
                                 break
-                                    
+                        else:
+                            
+                            log_content = 'no inventory page match'
+                            
+                            print (log_content)
+                            
+                            self.insert_error_log(url.rstrip(), log_content)
+                            
+                            break            
                     else:
                         
                         print (url_status_code)
