@@ -314,15 +314,23 @@ class DwsCrawler(object):
     '''
     def extract_href(self, matched_result):
         
-        space_removed_result = matched_result.replace(' ', '')
-                    
+        if isinstance(matched_result, str):
+            
+            tmp_result = matched_result
+            
+        else:
+            
+            tmp_result = matched_result[1]
+            
+        space_removed_result = tmp_result.replace(' ', '')
+                
         wrapped_character_start = space_removed_result[5]
         
         space_removed_result = space_removed_result[6:]
         
         wrapped_character_end_position = space_removed_result.find(wrapped_character_start)
         
-        return space_removed_result[:wrapped_character_end_position - 1]
+        return space_removed_result[:wrapped_character_end_position]
     
     '''
     '''
@@ -345,17 +353,17 @@ class DwsCrawler(object):
         html_content = re.sub('\s+', ' ', html)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
         
-        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>[\s\n]*\<\/a\>)", html_content)
+        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)", html_content)
         
         inventory_href_list = list()
         
         for matched_result in matched_result_list:
             
-            matched_result = matched_result.replace(' ', '')
-            
             for inventory_content in self.inventory_match_contents:
                 
-                content = '>' + inventory_content.strip() + '<'
+                content = inventory_content.rstrip()
+                
+                matched_result = matched_result.replace(' ', '')
                 
                 if content in matched_result:
                     
@@ -385,10 +393,10 @@ class DwsCrawler(object):
     '''
     def get_detail_page_href_list(self, inventory_href, vehicle_html):
         
-        html_content = re.sub('\s+', ' ', html)
+        html_content = re.sub('\s+', ' ', vehicle_html)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
         
-        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>[\s\n]*\<\/a\>)", html_content)
+        matched_result_list = re.findall(r"(\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>))|(\<td\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\>))", html_content)
         
         href_list = list()
         
@@ -448,8 +456,6 @@ class DwsCrawler(object):
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
-        self.not_crawlable_urls = ['https://www.nfiempire.com/']
-        
         for url in self.not_crawlable_urls:
             
             pagination = False
@@ -479,9 +485,6 @@ class DwsCrawler(object):
 
                             redirect_url = False
                             
-                        print ('***************************')
-                        print (driver.current_url)
-                        print ('***************************')
                         
                         inventory_element = driver.find_element_by_tag_name('html')
                         
@@ -494,9 +497,6 @@ class DwsCrawler(object):
                         else:
                             inventory_href_list.append(pagination_url)
                         
-                        print ('===============================')
-                        print (inventory_href_list)
-                        print ('===============================')
                         
                         if len(inventory_href_list) != 0:
                             
@@ -509,11 +509,11 @@ class DwsCrawler(object):
                                     
                                 inventory_url = self.real_protocol(url, inventory_url)
                                     
-                                # inventory_url = inventory_url.replace('//', '/')
-                                    
                                 with open('log/href.txt', 'a') as file_object:
                                     content = inventory_url + '\n'
                                     file_object.write(content)
+                                
+                                driver.delete_all_cookies()
                                     
                                 proxy_http = "http://" + self.get_random_proxy()        
                         
@@ -545,18 +545,18 @@ class DwsCrawler(object):
                                         time.sleep(SCROLL_PAUSE_TIME)
         
                                         inventory_url = driver.current_url
-                                        
-                                        print (inventory_url)
                                     
-                                        vehicle_element = driver.find_element_by_tag_name('html')
+                                        vehicle_element = driver.find_element_by_tag_name('html')                                
                                         
-                                        vehicle_html = vehicle_element.get_attribute('innerHTML')
+                                        vehicle_html = vehicle_element.get_attribute('innerHTML')                                
                                         
-                                        vehicle_href_list = self.get_detail_page_href_list(inventory_href, vehicle_html)
+                                        time.sleep(1)
+                                        
+                                        vehicle_href_list = self.get_detail_page_href_list(inventory_href, vehicle_html)                                        
                                         
                                         if len(vehicle_href_list) != 0:
                                             
-                                            print ('first page vehicle count = ', len(vehicle_href_list))
+                                            print ('page vehicle count = ', len(vehicle_href_list))
                                             
                                             with open('log/vehicle_href.txt', 'a') as file_object:
                                                 
@@ -575,7 +575,6 @@ class DwsCrawler(object):
                                                     content = inventory_url + ' ' + vehicle_url + '\n'
                                                     file_object.write(content)
                                                     
-                                            # print ('+++++++++++++++++++++++++++++++')
                                             
                                         else:
                                             
@@ -599,14 +598,7 @@ class DwsCrawler(object):
                                     self.insert_error_log(url.rstrip(), log_content)
                                     break
                         
-                            next_page_class = self.exist_pagination(vehicle_html)
-                            
-                            # with open('1234.txt', 'a') as file_object:
-                            #     file_object.write(vehicle_html)
-                            
-                            # print (next_page_class)
-                            
-                            # return
+                            next_page_class = self.exist_pagination(vehicle_html)                            
                             
                             if next_page_class != None:
                                 
@@ -645,7 +637,6 @@ class DwsCrawler(object):
                             print (log_content)
                             
                             self.insert_error_log(url.rstrip(), log_content)
-                            
                             break            
                     else:
                         
