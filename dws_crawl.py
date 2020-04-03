@@ -456,7 +456,13 @@ class DwsCrawler(object):
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
-        for url in self.not_crawlable_urls:
+        i = 0
+        
+        while self.not_crawlable_urls[i]:
+            
+            url = self.not_crawlable_urls[i]
+            
+            vehicle_list = list()
             
             pagination = False
             
@@ -466,9 +472,10 @@ class DwsCrawler(object):
             
             pagination_url = url.rstrip()
                 
-            while True:
+            try:
                 
-                try:
+                while True:
+                    
                     url_status_code = requests.get(pagination_url).status_code
                 
                     if (url_status_code == 200):
@@ -558,23 +565,20 @@ class DwsCrawler(object):
                                             
                                             print ('page vehicle count = ', len(vehicle_href_list))
                                             
-                                            with open('log/vehicle_href.txt', 'a') as file_object:
+                                            for vehicle_href in vehicle_href_list:
+                                                    
+                                                if 'http' in vehicle_href:
+                                                    vehicle_url = vehicle_href
+                                                else:
+                                                    vehicle_url = url.rstrip() + vehicle_href
+                                                    
+                                                vehicle_url = self.real_protocol(url, vehicle_url)
                                                 
-                                                for vehicle_href in vehicle_href_list:
-                                                    
-                                                    if 'http' in vehicle_href:
-                                                        vehicle_url = vehicle_href
-                                                    else:
-                                                        vehicle_url = url.rstrip() + vehicle_href
-                                                        
-                                                    vehicle_url = self.real_protocol(url, vehicle_url)
-                                                    
-                                                    vehicle_url = vehicle_url.replace('//', '/')
-                                                    vehicle_url = vehicle_url.replace(':/', '://')
-                                                    
-                                                    content = inventory_url + ' ' + vehicle_url + '\n'
-                                                    file_object.write(content)
-                                                    
+                                                vehicle_url = vehicle_url.replace('//', '/')
+                                                vehicle_url = vehicle_url.replace(':/', '://')
+                                                
+                                                content = inventory_url + ' ' + vehicle_url
+                                                vehicle_list.append(content)
                                             
                                         else:
                                             
@@ -646,17 +650,20 @@ class DwsCrawler(object):
                         self.insert_error_log(url.rstrip(), log_content)
                         
                         break
-                        
-                except:
-                    print ('url connection error')
-                    log_content = 'url connection error'
-                    self.insert_error_log(url.rstrip(), log_content)
-                    break
+                            
+                    
+            except KeyboardInterrupt:
+                break
+                    
+            with open('log/vehicle_href.txt', 'a') as file_object:
                 
+                # remove duplicated vehicle page urls of list
+                vehicle_list = list(dict.fromkeys(vehicle_list))
                 
-                
-                
-        # self.remove_duplicated_info()        
+                for vehilce_page in vehicle_list:
+                    file_object.write("%s\n" % vehilce_page)
+            
+            i += 1     
                 
 dc = DwsCrawler()
 
