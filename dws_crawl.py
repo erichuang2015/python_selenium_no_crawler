@@ -121,7 +121,7 @@ class DwsCrawler(object):
             path = proxy_list_path
         else:
             path = "proxies.txt"
-        with open(path,"r") as file:
+        with open(path, "r") as file:
             self.proxy_list = file.readlines()    
             return True
 
@@ -139,7 +139,7 @@ class DwsCrawler(object):
             path = url_list_path
         else:
             path = "utilites/not_crawlable_urls.txt"
-        with open(path,"r") as file:
+        with open(path, "r") as file:
             self.not_crawlable_urls = file.readlines()    
             return True
 
@@ -239,7 +239,7 @@ class DwsCrawler(object):
     '''
     def remove_duplicated_item_from_list(self, duplicated_list):
         
-        return list(dict.fromkeys(duplicated_list))
+        return list(set(duplicated_list))
     
     
     '''
@@ -350,18 +350,23 @@ class DwsCrawler(object):
     '''
     def get_inventory_href(self, html):
         
+        html_content = html
         html_content = re.sub('\s+', ' ', html)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
+        html_content = re.sub('\<\/script\>', '</script>\n', html_content)
+        html_content = re.sub('\<script.*\<\/script\>', '', html_content)
         
-        matched_result_list = re.findall(r"\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)", html_content)
+        matched_result_pattern = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
         
         inventory_href_list = list()
         
-        for matched_result in matched_result_list:
+        for x in matched_result_pattern.finditer(html_content):
+            
+            matched_result = x.groups()[0]
             
             for inventory_content in self.inventory_match_contents:
                 
-                content = inventory_content.rstrip()
+                content = inventory_content.rstrip().replace(' ', '')
                 
                 matched_result = matched_result.replace(' ', '')
                 
@@ -372,7 +377,6 @@ class DwsCrawler(object):
                     inventory_href = self.check_inventory_href(inventory_href)
                     
                     inventory_href_list.append(inventory_href)
-                    
         
         inventory_href_list = self.remove_duplicated_item_from_list(inventory_href_list)
         
@@ -393,14 +397,20 @@ class DwsCrawler(object):
     '''
     def get_detail_page_href_list(self, inventory_href, vehicle_html):
         
-        html_content = re.sub('\s+', ' ', vehicle_html)
+        html_content = vehicle_html
+        html_content = re.sub('\s+', ' ', html)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
+        html_content = re.sub('\<\/script\>', '</script>\n', html_content)
+        html_content = re.sub('\<script.*\<\/script\>', '', html_content)
         
-        matched_result_list = re.findall(r"(\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>))|(\<td\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\>))", html_content)
+        matched_result_pattern = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
         
         href_list = list()
         
-        for matched_result in matched_result_list:
+        # for matched_result in matched_result_list:
+        for x in matched_result_pattern.finditer(html_content):
+            
+            matched_result = x.groups()[0]
             
             for detail_page in self.detail_page_urls:
                 
@@ -426,11 +436,21 @@ class DwsCrawler(object):
         
         for next_class in self.page_next_class:
             
-            if next_class.rstrip() in html:
+            next_class = next_class.rstrip()
+            
+            if next_class in html:
                 
-                return next_class.rstrip().split('"')[1]
+                if next_class == '<li class="next" id="nextPage">':
+                    
+                    return 'id', 'nextPage'
+                
+                elif next_class == '<div class="btn" onclick="refreshData(">':
+                    
+                    return None, None
+                
+                return 'class', next_class.rstrip().split('"')[1]
         
-        return None
+        return None, None
     
     '''
     @ description: main function to crawl
@@ -458,11 +478,14 @@ class DwsCrawler(object):
         
         i = 0
         
-        while self.not_crawlable_urls[i]:
+        while True:
+        
+            if (len(self.not_crawlable_urls) <= i):
+                break
             
             url = self.not_crawlable_urls[i]
             
-            vehicle_list = list()
+            detail_url_list = list()
             
             pagination = False
             
@@ -476,13 +499,13 @@ class DwsCrawler(object):
                 
                 while True:
                     
-                    url_status_code = requests.get(pagination_url).status_code
+                    url_status_code = requests.get(pagination_url, verify=False).status_code
                 
                     if (url_status_code == 200):
                         
                         if pagination == False:
                             
-                            driver.delete_all_cookies()
+                            # driver.delete_all_cookies()
                             
                             driver.get(pagination_url)
                         
@@ -491,7 +514,7 @@ class DwsCrawler(object):
                             url = driver.current_url
 
                             redirect_url = False
-                            
+                        
                         
                         inventory_element = driver.find_element_by_tag_name('html')
                         
@@ -500,10 +523,17 @@ class DwsCrawler(object):
                         inventory_href_list = list()
                         
                         if pagination == False:
-                            inventory_href_list = self.get_inventory_href(inventory_html)
+                            
+                            try:
+                                
+                                inventory_href_list = self.get_inventory_href(inventory_html)
+                                
+                            except:
+                                
+                                pass
+                            
                         else:
                             inventory_href_list.append(pagination_url)
-                        
                         
                         if len(inventory_href_list) != 0:
                             
@@ -537,7 +567,7 @@ class DwsCrawler(object):
                                 
                                 try:
                                     
-                                    inventory_url_status_code = requests.get(inventory_url).status_code
+                                    inventory_url_status_code = requests.get(inventory_url, verify=False).status_code
                                     
                                     if inventory_url_status_code == 200:
                                         
@@ -578,11 +608,11 @@ class DwsCrawler(object):
                                                 vehicle_url = vehicle_url.replace(':/', '://')
                                                 
                                                 content = inventory_url + ' ' + vehicle_url
-                                                vehicle_list.append(content)
+                                                
+                                                detail_url_list.append(content)
                                             
                                         else:
                                             
-                                            print ('no vehicle')
                                             log_content = inventory_url + ' ' + 'no vehicle'
                                             self.insert_error_log(url.rstrip(), log_content)
                                             break
@@ -596,18 +626,19 @@ class DwsCrawler(object):
                                         
                                 except:
                                     
-                                    print ('page connection error')
-                                    
-                                    log_content = inventory_url + ' ' + 'page connection error'
+                                    log_content = inventory_url + ' ' + 'connection error'
                                     self.insert_error_log(url.rstrip(), log_content)
                                     break
                         
-                            next_page_class = self.exist_pagination(vehicle_html)                            
+                            next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                            
                             
-                            if next_page_class != None:
+                            if next_page_tag != None:
                                 
                                 # go to next page
-                                next_page_link_script = '//*[@class="' + next_page_class + '"]'
+                                if next_page_tag == 'class':
+                                    next_page_link_script = '//*[@class="' + next_page_attr + '"]'
+                                elif next_page_tag == 'id':
+                                    next_page_link_script = '//*[@id="' + next_page_attr + '"]'                                    
                                 
                                 next_page_link = driver.find_element_by_xpath(next_page_link_script)
                                 
@@ -621,7 +652,7 @@ class DwsCrawler(object):
                                 
                                 pagination_url = driver.current_url
                                 
-                                driver.delete_all_cookies()
+                                driver.delete_all_cookies()                                    
                                 
                                 driver.get(pagination_url)
                                     
@@ -658,12 +689,14 @@ class DwsCrawler(object):
             with open('log/vehicle_href.txt', 'a') as file_object:
                 
                 # remove duplicated vehicle page urls of list
-                vehicle_list = list(dict.fromkeys(vehicle_list))
+                not_duplicated_detail_url_list = list(set(detail_url_list))
                 
-                for vehilce_page in vehicle_list:
-                    file_object.write("%s\n" % vehilce_page)
+                for detail_page_url in not_duplicated_detail_url_list:
+                    file_object.write("%s\n" % detail_page_url)
             
             i += 1     
+
+start_time = time.time()
                 
 dc = DwsCrawler()
 
@@ -672,3 +705,5 @@ dc.get_proxy_list()
 
 # run main crawler function
 dc.crawl_func()
+
+print("--- %s seconds ---" % (time.time() - start_time))
