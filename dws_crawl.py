@@ -29,8 +29,6 @@ class DwsCrawler(object):
         
         self.output_path = ''
         
-        self.inventory_page_urls = list()
-        
         self.detail_page_urls = list()
         
         self.inventory_match_contents = list()
@@ -38,6 +36,9 @@ class DwsCrawler(object):
         self.not_detail_url_content = list()
         
         self.page_next_class = list()
+        
+        # self.project_dir = '/var/www/crawler/' # Linux
+        self.project_dir = '' # windows
         
         self.initialize()
     
@@ -50,8 +51,6 @@ class DwsCrawler(object):
         
         # add column header
         self.append_header_to_csv()
-        
-        self.get_inventory_page_urls()
         
         self.get_detail_page_urls()
         
@@ -120,7 +119,7 @@ class DwsCrawler(object):
         if proxy_list_path != None:
             path = proxy_list_path
         else:
-            path = "proxies.txt"
+            path = self.project_dir + "utilites/proxies.txt"
         with open(path, "r") as file:
             self.proxy_list = file.readlines()    
             return True
@@ -138,7 +137,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = "utilites/not_crawlable_urls.txt"
+            path = self.project_dir + "utilites/not_crawlable_urls_5000.txt"
         with open(path, "r") as file:
             self.not_crawlable_urls = file.readlines()    
             return True
@@ -195,7 +194,7 @@ class DwsCrawler(object):
     @ return:
     '''
     def insert_success_log(self, url, content):
-        path = 'log/success_log'
+        path = self.project_dir + 'log/success_log'
         date_time = self.current_datetime_string()
         content = date_time + ':  ' + url + '   ' + content
         
@@ -210,30 +209,13 @@ class DwsCrawler(object):
     @ return:
     '''
     def insert_error_log(self, url, content):
-        path = 'log/error_log'
+        path = self.project_dir + 'log/error_log'
         date_time = self.current_datetime_string()
         content = date_time + ':  ' + url + '   ' + content
         
         with open(path, 'a') as file_object:
             file_object.write(content)
             file_object.write('\n')
-    
-    '''
-    @ description: get inventory page urls (sub url such as "/inventory/")
-    '''
-    def get_inventory_page_urls(self, url_list_path = None):
-        
-        path = ""
-        if url_list_path != None:
-            path = url_list_path
-        else:
-            path = "utilites/inventory_page_urls.txt"
-            
-        with open(path,"r") as file:
-            self.inventory_page_urls = file.readlines()    
-            return True
-
-        return False
     
     '''
     '''
@@ -251,7 +233,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = "utilites/detail_page_urls.txt"
+            path = self.project_dir + "utilites/detail_page_urls.txt"
             
         with open(path, "r") as file:
             self.detail_page_urls = file.readlines()    
@@ -268,7 +250,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = "utilites/inventory_match_content.txt"
+            path = self.project_dir + "utilites/inventory_match_content.txt"
             
         with open(path, "r") as file:
             self.inventory_match_contents = file.readlines()    
@@ -285,7 +267,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = "utilites/not_detail_url_match.txt"
+            path = self.project_dir + "utilites/not_detail_url_match.txt"
             
         with open(path, "r") as file:
             self.not_detail_url_content = file.readlines()    
@@ -302,7 +284,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = "utilites/page_next_pattern.txt"
+            path = self.project_dir + "utilites/page_next_pattern.txt"
             
         with open(path, "r") as file:
             self.page_next_class = file.readlines()    
@@ -517,6 +499,9 @@ class DwsCrawler(object):
                     return 'www.10kautosgreenville.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
             
             # if next_pattern in html:
+                elif next_pattern == 'id="A_Pager_Next" class="page-link"':
+                    
+                    return 'id', next_pattern.rstrip().split('"')[1]
                 
                 elif next_pattern == '<li class="next" id="nextPage">':
                     
@@ -526,7 +511,7 @@ class DwsCrawler(object):
                     
                     return None, None
                 
-                elif next_pattern == '>><':
+                elif next_pattern == '>></a>':
                     
                     return 'www.westlawnmotors.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
                 
@@ -603,7 +588,13 @@ class DwsCrawler(object):
                             # driver.delete_all_cookies()
                             time.sleep(1)
                             
-                            driver.get(pagination_url)
+                            try:
+                            
+                                driver.get(pagination_url)
+                            
+                            except:
+                                
+                                break    
                         
                         if redirect_url:
                             
@@ -647,7 +638,7 @@ class DwsCrawler(object):
                                                 
                                 inventory_url = self.real_protocol(url, inventory_url)
                                     
-                                with open('log/href.txt', 'a') as file_object:
+                                with open(self.project_dir + 'log/href.txt', 'a') as file_object:
                                     content = inventory_url + '\n'
                                     file_object.write(content)
                                 
@@ -708,10 +699,11 @@ class DwsCrawler(object):
                                                 vehicle_url = vehicle_url.replace('//', '/')
                                                 vehicle_url = vehicle_url.replace(':/', '://')
                                                 
-                                                content = inventory_url + ' ' + vehicle_url
+                                                # content = inventory_url + ' ' + vehicle_url
+                                                # content = vehicle_url
                                                 
-                                                if content not in detail_url_list:
-                                                    detail_url_list.append(content)
+                                                if vehicle_url not in detail_url_list and inventory_url != vehicle_url:
+                                                    detail_url_list.append(vehicle_url)
                                             
                                         else:
                                             
@@ -814,7 +806,7 @@ class DwsCrawler(object):
                                     
                             else:
                                     
-                                with open('log/pagination', 'a') as file_object:
+                                with open(self.project_dir + 'log/pagination', 'a') as file_object:
                                     log_content = inventory_url + '  ' + str(page_count) + '\n'
                                     file_object.write(log_content)
                                     
@@ -852,7 +844,7 @@ class DwsCrawler(object):
             
             i += 1  
             
-            with open('log/processed_url_counts.txt', 'w') as file_object:
+            with open(self.project_dir + 'log/processed_url_counts.txt', 'w') as file_object:
                 log_content = str(len_not_crawlable_url) + ' / ' + str(i) + '\n'
                 file_object.write(log_content)   
 
