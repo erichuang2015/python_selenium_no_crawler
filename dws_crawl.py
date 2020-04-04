@@ -37,7 +37,7 @@ class DwsCrawler(object):
         
         self.page_next_class = list()
         
-        # self.project_dir = '/var/www/crawler/' # Linux
+        # self.project_dir = '/var/crawler/' # Linux
         self.project_dir = '' # windows
         
         self.initialize()
@@ -50,7 +50,7 @@ class DwsCrawler(object):
         self.set_result_filename()
         
         # add column header
-        self.append_header_to_csv()
+        # self.append_header_to_csv()
         
         self.get_detail_page_urls()
         
@@ -401,11 +401,12 @@ class DwsCrawler(object):
             
             matched_result = x.groups()[0]
             
+            href = self.extract_href(matched_result)
+            
             for detail_page in self.detail_page_urls:
                 
-                href = self.extract_href(matched_result)
-                
                 if href != inventory_href and detail_page.rstrip() in href:
+                # if detail_page.rstrip() in href:
                     
                     for not_detail_page in self.not_detail_url_content:
                     
@@ -427,9 +428,9 @@ class DwsCrawler(object):
                 
                 matched_result = x.groups()[0]
                 
+                href = self.extract_href(matched_result)
+                
                 for detail_page in self.detail_page_urls:
-                    
-                    href = self.extract_href(matched_result)
                     
                     if href != inventory_href and detail_page.rstrip() in href:
                         
@@ -449,13 +450,15 @@ class DwsCrawler(object):
         
         return new_item_append
     
+    
     '''
+    @ description: href is behind of the pattern
     '''
     def extract_front_href(self, pattern, html):
         
         end_position = html.find(pattern)
         
-        start_position = html[:pattern].rfind('href')
+        start_position = html[:end_position].rfind('href')
         
         exact_pattern = html[start_position:end_position]
         
@@ -463,6 +466,7 @@ class DwsCrawler(object):
     
     
     '''
+    @ description: href is in front of pattern 
     '''
     def extract_behind_href(self, pattern, html):
         
@@ -515,9 +519,9 @@ class DwsCrawler(object):
                     
                     return 'www.westlawnmotors.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
                 
-                elif next_pattern == '':
+                elif next_pattern_removed_space == '>Next</a>':
                     
-                    return 'www.smailacura.com', self.extract_behind_href(next_pattern_removed_space, html_removed_space_and_enter_key)
+                    return 'general_href', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
                 
                 return 'class', next_pattern.rstrip().split('"')[1]
         
@@ -709,7 +713,7 @@ class DwsCrawler(object):
                                             
                                             log_content = inventory_url + ' ' + 'no vehicle'
                                             self.insert_error_log(url.rstrip(), log_content)
-                                            break
+                                            # break
                                     else:
                                         
                                         print (inventory_url_status_code)   
@@ -724,7 +728,7 @@ class DwsCrawler(object):
                                     self.insert_error_log(url.rstrip(), log_content)
                                     break
                         
-                            next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                            
+                            next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                          
                             
                             if next_page_tag != None and next_page_enable:
                                 
@@ -777,7 +781,7 @@ class DwsCrawler(object):
                                     else:
                                         pagination_url = url.rstrip() + next_page_attr[1:]
                                 
-                                elif next_page_tag == 'www.smailacura.com':
+                                elif next_page_tag == 'general_href':
                                     
                                     if inventory_url[-1] != '/':
                                         pagination_url = inventory_url + next_page_attr
