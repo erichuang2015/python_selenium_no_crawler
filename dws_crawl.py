@@ -351,7 +351,7 @@ class DwsCrawler(object):
     def get_inventory_href(self, html):
         
         html_content = html
-        html_content = re.sub('\s+', ' ', html_content)
+        html_content = re.sub('\s+', '', html_content)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
         html_content = re.sub('\<\/script\>', '</script>\n', html_content)
         html_content = re.sub('\<script.*\<\/script\>', '', html_content)
@@ -404,12 +404,18 @@ class DwsCrawler(object):
         html_content = re.sub('\<\/script\>', '</script>\n', html_content)
         html_content = re.sub('\<script.*\<\/script\>', '', html_content)
         
-        matched_result_pattern = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
+        # regex to get like '<a href="/170974/2009-Toyota-Matrix-S-5-Speed-At">'
+        matched_result_pattern1 = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*\/\d+\"*\'*.*\>.*\<\/a\>)')
+        
+        # regex to get any content of a tag
+        matched_result_pattern2 = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
         
         new_item_append = False
         
-        # for matched_result in matched_result_list:
-        for x in matched_result_pattern.finditer(html_content):
+        match_1 = False
+        
+        # for matched_result in matched_result_list2:
+        for x in matched_result_pattern1.finditer(html_content):
             
             matched_result = x.groups()[0]
             
@@ -425,36 +431,110 @@ class DwsCrawler(object):
                             
                             if href not in self.tmp_detail_page_list:
                                 
+                                match_1 = True
+                                
                                 new_item_append = True
                                 
                                 self.tmp_detail_page_list.append(href)
                     
                     break
+        
+        if match_1 == False:
+            # for matched_result in matched_result_list2:
+            for x in matched_result_pattern2.finditer(html_content):
+                
+                matched_result = x.groups()[0]
+                
+                for detail_page in self.detail_page_urls:
+                    
+                    href = self.extract_href(matched_result)
+                    
+                    if href != inventory_href and detail_page.rstrip() in href:
+                        
+                        for not_detail_page in self.not_detail_url_content:
+                        
+                            if not_detail_page.rstrip() not in href:
+                                
+                                if href not in self.tmp_detail_page_list:
+                                    
+                                    new_item_append = True
+                                    
+                                    self.tmp_detail_page_list.append(href)
+                        
+                        break
                     
         # href_list = self.remove_duplicated_item_from_list(href_list)
         
         return new_item_append
     
     '''
+    '''
+    def extract_front_href(self, pattern, html):
+        
+        end_position = html.find(pattern)
+        
+        start_position = html[:pattern].rfind('href')
+        
+        exact_pattern = html[start_position:end_position]
+        
+        return self.extract_href(exact_pattern)
+    
+    
+    '''
+    '''
+    def extract_behind_href(self, pattern, html):
+        
+        pattern_start_position = html.find(pattern)
+        
+        behind_text = html[pattern_start_position:]
+        
+        end_position = behind_text.find('>')
+        
+        href_start_position = html[pattern_start_position:].find('href')
+        
+        exact_pattern = html[href_start_position:end_position]
+        
+        return self.extract_href(exact_pattern)
+        
+    
+    '''
     @ description: check if pagniation is exist or not
     '''
     def exist_pagination(self, html):
         
-        for next_class in self.page_next_class:
+        for next_pattern in self.page_next_class:
             
-            next_class = next_class.rstrip()
+            next_pattern = next_pattern.rstrip()
             
-            if next_class in html:
+            html_removed_space_and_enter_key = re.sub('\s+', '', html)
+            
+            next_pattern_removed_space = re.sub('\s+', '', next_pattern)
+            
+            if next_pattern_removed_space in html_removed_space_and_enter_key:
                 
-                if next_class == '<li class="next" id="nextPage">':
+                if next_pattern == '>next</a> »</span>':
+                    
+                    return 'www.10kautosgreenville.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
+            
+            # if next_pattern in html:
+                
+                elif next_pattern == '<li class="next" id="nextPage">':
                     
                     return 'id', 'nextPage'
                 
-                elif next_class == '<div class="btn" onclick="refreshData(">':
+                elif next_pattern == '<div class="btn" onclick="refreshData(">':
                     
                     return None, None
                 
-                return 'class', next_class.rstrip().split('"')[1]
+                elif next_pattern == '>><':
+                    
+                    return 'www.westlawnmotors.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
+                
+                elif next_pattern == '':
+                    
+                    return 'www.smailacura.com', self.extract_behind_href(next_pattern_removed_space, html_removed_space_and_enter_key)
+                
+                return 'class', next_pattern.rstrip().split('"')[1]
         
         return None, None
     
@@ -521,6 +601,7 @@ class DwsCrawler(object):
                         if pagination == False:
                             
                             # driver.delete_all_cookies()
+                            time.sleep(1)
                             
                             driver.get(pagination_url)
                         
@@ -611,10 +692,6 @@ class DwsCrawler(object):
                                         
                                         next_page_enable = self.get_detail_page_href_list(inventory_href, vehicle_html)                                        
                                         
-                                        print ('===========================')
-                                        print (next_page_enable)
-                                        print ('===========================')
-                                        
                                         if len(self.tmp_detail_page_list) != 0:
                                             
                                             print ('page vehicle count = ', len(self.tmp_detail_page_list))
@@ -661,25 +738,79 @@ class DwsCrawler(object):
                                 
                                 # go to next page
                                 if next_page_tag == 'class':
+                                
                                     next_page_link_script = '//*[@class="' + next_page_attr + '"]'
+                                    
+                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                
+                                    driver.execute_script("arguments[0].click();", next_page_link)
+                                    
+                                    # time.sleep(1)
+                                    
+                                    pagination_url = driver.current_url
+                                
+                                    driver.delete_all_cookies()                                    
+                                    
+                                    # driver.get(pagination_url)
+                                
                                 elif next_page_tag == 'id':
-                                    next_page_link_script = '//*[@id="' + next_page_attr + '"]'                                    
+                                    
+                                    next_page_link_script = '//*[@id="' + next_page_attr + '"]'
+                                    
+                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
                                 
-                                next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                    driver.execute_script("arguments[0].click();", next_page_link)
+                                    
+                                    # time.sleep(1)
+                                    
+                                    pagination_url = driver.current_url
                                 
-                                driver.execute_script("arguments[0].click();", next_page_link)
+                                    driver.delete_all_cookies()                                    
+                                    
+                                    # driver.get(pagination_url)
                                 
+                                elif next_page_tag == 'www.westlawnmotors.com':
+                                    
+                                    if inventory_url[-1] != '/':
+                                        pagination_url = inventory_url + '/' + next_page_attr
+                                    else:
+                                        pagination_url = inventory_url + next_page_attr
+                                    
+                                    # driver.get(pagination_url)
+                                    
+                                elif next_page_tag == 'www.10kautosgreenville.com':
+                                    
+                                    if url.rstrip()[-1] != '/':
+                                        pagination_url = url.rstrip() + next_page_attr
+                                    else:
+                                        pagination_url = url.rstrip() + next_page_attr[1:]
+                                
+                                elif next_page_tag == 'www.smailacura.com':
+                                    
+                                    if inventory_url[-1] != '/':
+                                        pagination_url = inventory_url + next_page_attr
+                                    else:
+                                        pagination_url = inventory_url[:-1] + next_page_attr
+                                 
                                 time.sleep(1)
+                                
+                                driver.get(pagination_url)
+                                    
+                                # next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                
+                                # driver.execute_script("arguments[0].click();", next_page_link)
+                                
+                                # time.sleep(1)
                                 
                                 pagination = True
                                 
                                 page_count += 1
                                 
-                                pagination_url = driver.current_url
+                                # pagination_url = driver.current_url
                                 
-                                driver.delete_all_cookies()                                    
+                                # driver.delete_all_cookies()                                    
                                 
-                                driver.get(pagination_url)
+                                # driver.get(pagination_url)
                                     
                             else:
                                     
