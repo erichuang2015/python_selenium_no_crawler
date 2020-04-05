@@ -378,7 +378,7 @@ class DwsCrawler(object):
     
     '''
     '''
-    def get_detail_page_href_list(self, inventory_href, vehicle_html):
+    def get_detail_page_href_list(self, inventory_href, vehicle_html, detail_url_in_each_inventory):
         
         html_content = vehicle_html
         html_content = re.sub('\s+', ' ', html_content)
@@ -391,6 +391,9 @@ class DwsCrawler(object):
         
         # regex to get any content of a tag
         matched_result_pattern2 = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
+        
+        
+        detail_urls_inventory = detail_url_in_each_inventory
         
         new_item_append = False
         
@@ -412,13 +415,13 @@ class DwsCrawler(object):
                     
                         if not_detail_page.rstrip() not in href:
                             
-                            if href not in self.tmp_detail_page_list:
+                            if href not in detail_urls_inventory:
                                 
                                 match_1 = True
                                 
                                 new_item_append = True
                                 
-                                self.tmp_detail_page_list.append(href)
+                                detail_urls_inventory.append(href)
                     
                     break
         
@@ -438,17 +441,17 @@ class DwsCrawler(object):
                         
                             if not_detail_page.rstrip() not in href:
                                 
-                                if href not in self.tmp_detail_page_list:
+                                if href not in detail_urls_inventory:
                                     
                                     new_item_append = True
                                     
-                                    self.tmp_detail_page_list.append(href)
+                                    detail_urls_inventory.append(href)
                         
                         break
                     
         # href_list = self.remove_duplicated_item_from_list(href_list)
         
-        return new_item_append
+        return new_item_append, detail_urls_inventory
     
     
     '''
@@ -553,6 +556,8 @@ class DwsCrawler(object):
         
         i = 0
         
+        self.not_crawlable_urls = ['https://www.markmitsubishiphoenix.com/']
+        
         len_not_crawlable_url = len(self.not_crawlable_urls)
         
         while True:
@@ -560,7 +565,7 @@ class DwsCrawler(object):
             if (len_not_crawlable_url <= i):
                 break
             
-            url = self.not_crawlable_urls[i]
+            url = self.not_crawlable_urls[i].rstrip()
             
             if url[0] != 'h':
                 url = 'http://' + url
@@ -569,84 +574,102 @@ class DwsCrawler(object):
             
             self.tmp_detail_page_list = list() # detail page url list of each websites
             
-            detail_url_list = list()
+            detail_url_list_each_site = list()
             
             pagination = False
             
-            page_count = 1
-            
             redirect_url = True
             
-            pagination_url = url.rstrip()
+            pagination_url = url
                 
             try:
                 
-                while True:
+                # while True:
                     
-                    url_status_code = requests.get(pagination_url, verify=False).status_code
-                
-                    if (url_status_code == 200):
+                url_status_code = requests.get(pagination_url, verify=False).status_code
+            
+                if (url_status_code == 200):
+                    
+                    if pagination == False:
                         
-                        if pagination == False:
-                            
-                            # driver.delete_all_cookies()
-                            time.sleep(1)
-                            
-                            try:
-                            
-                                driver.get(pagination_url)
-                            
-                            except:
-                                
-                                break    
+                        # driver.delete_all_cookies()
+                        time.sleep(1)
                         
-                        if redirect_url:
+                        try:
+                        
+                            driver.get(pagination_url)
+                        
+                        except:
                             
-                            url = driver.current_url
+                            break    
+                    
+                    if redirect_url:
+                        
+                        url = driver.current_url
 
-                            redirect_url = False
+                        redirect_url = False
+                    
+                    
+                    inventory_element = driver.find_element_by_tag_name('html')
+                    
+                    inventory_html = inventory_element.get_attribute('innerHTML')
+                    
+                    # inventory_href_list = list()
+                    
+                    if pagination == False:
                         
-                        
-                        inventory_element = driver.find_element_by_tag_name('html')
-                        
-                        inventory_html = inventory_element.get_attribute('innerHTML')
-                        
-                        # inventory_href_list = list()
-                        
-                        if pagination == False:
+                        try:
                             
-                            try:
+                            self.get_inventory_href(inventory_html)
+                            
+                        except:
+                            
+                            pass
+                        
+                    else:
+                        self.tmp_inventory_href_list.append(pagination_url)
+                    
+                    if len(self.tmp_inventory_href_list) != 0:
+                        
+                        next_page_enable = True
+                        
+                        # print ('>>>>>>>>>>>>>>>>>1')
+                        # print (self.tmp_inventory_href_list)
+                        # print ('>>>>>>>>>>>>>>>>>1')
+                        
+                        total_vehicle_each_site = 0
+                        
+                        total_vehicle_each_inventory = list()
+                        
+                        inventory_count = 0
+                        
+                        for inventory_href in self.tmp_inventory_href_list:
+                            
+                            detail_url_in_each_inventory = list()
+                            
+                            total_vehicle_each_inventory.append(0)
+                            
+                            page_count = 1
+                        
+                            if 'http' in inventory_href:
+                                inventory_url = inventory_href
+                            else:
+                                inventory_url = url + inventory_href
                                 
-                                self.get_inventory_href(inventory_html)
+                            inventory_url = inventory_url.replace('//', '/')
+                            inventory_url = inventory_url.replace(':/', '://')
+                                            
+                            inventory_url = self.real_protocol(url, inventory_url)
+                               
+                            inventory_url_for_log = inventory_url
+                            
+                            while True:
                                 
-                            except:
+                                # time.sleep(1)
                                 
-                                pass
-                            
-                        else:
-                            self.tmp_inventory_href_list.append(pagination_url)
-                        
-                        if len(self.tmp_inventory_href_list) != 0:
-                            
-                            next_page_enable = True
-                            
-                            for inventory_href in self.tmp_inventory_href_list:
-                            
-                                if 'http' in inventory_href:
-                                    inventory_url = inventory_href
-                                else:
-                                    inventory_url = url.rstrip() + inventory_href
-                                    
-                                inventory_url = inventory_url.replace('//', '/')
-                                inventory_url = inventory_url.replace(':/', '://')
-                                                
-                                inventory_url = self.real_protocol(url, inventory_url)
-                                    
-                                with open(self.project_dir + 'log/href.txt', 'a') as file_object:
-                                    content = inventory_url + '\n'
-                                    file_object.write(content)
+                                vehicle_html = ''
                                 
-                                driver.delete_all_cookies()
+                                # driver.delete_all_cookies()
                                     
                                 proxy_http = "http://" + self.get_random_proxy()        
                         
@@ -683,20 +706,28 @@ class DwsCrawler(object):
                                         
                                         vehicle_html = vehicle_element.get_attribute('innerHTML')                                
                                         
-                                        time.sleep(1)
+                                        # time.sleep(1)
                                         
-                                        next_page_enable = self.get_detail_page_href_list(inventory_href, vehicle_html)                                        
+                                        next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
                                         
-                                        if len(self.tmp_detail_page_list) != 0:
+                                        # print ('>>>>>>>>2')
+                                        # print (detail_url_in_each_inventory)
+                                        # print ('>>>>>>>>2')
+                                        
+                                        if len(detail_url_in_each_inventory) != 0:
                                             
-                                            print ('page vehicle count = ', len(self.tmp_detail_page_list))
+                                            total_vehicle_each_inventory[inventory_count] += len(detail_url_in_each_inventory)
                                             
-                                            for vehicle_href in self.tmp_detail_page_list:
+                                            vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count) + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count])
+                                             
+                                            # print (inventory_url_for_log + ' page: ' + str(page_count) + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count]))
+                                            
+                                            for vehicle_href in detail_url_in_each_inventory:
                                                     
                                                 if 'http' in vehicle_href:
                                                     vehicle_url = vehicle_href
                                                 else:
-                                                    vehicle_url = url.rstrip() + vehicle_href
+                                                    vehicle_url = url + vehicle_href
                                                     
                                                 vehicle_url = self.real_protocol(url, vehicle_url)
                                                 
@@ -706,134 +737,153 @@ class DwsCrawler(object):
                                                 # content = inventory_url + ' ' + vehicle_url
                                                 # content = vehicle_url
                                                 
-                                                if vehicle_url not in detail_url_list and inventory_url != vehicle_url:
-                                                    detail_url_list.append(vehicle_url)
+                                                if vehicle_url not in detail_url_list_each_site and inventory_url != vehicle_url:
+                                                    detail_url_list_each_site.append(vehicle_url)
+                                                    
+                                                    
+                                            # pagination
+                                            next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                          
+                                
+                                            if next_page_tag != None and next_page_enable:
+                                                
+                                                # go to next page
+                                                if next_page_tag == 'class':
+                                                
+                                                    next_page_link_script = '//*[@class="' + next_page_attr + '"]'
+                                                    
+                                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                                
+                                                    driver.execute_script("arguments[0].click();", next_page_link)
+                                                    
+                                                    time.sleep(1)
+                                                    
+                                                    pagination_url = driver.current_url
+                                                
+                                                    driver.delete_all_cookies()                                    
+                                                    
+                                                    # driver.get(pagination_url)
+                                                
+                                                elif next_page_tag == 'id':
+                                                    
+                                                    next_page_link_script = '//*[@id="' + next_page_attr + '"]'
+                                                    
+                                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                                
+                                                    driver.execute_script("arguments[0].click();", next_page_link)
+                                                    
+                                                    time.sleep(1)
+                                                    
+                                                    pagination_url = driver.current_url
+                                                
+                                                    driver.delete_all_cookies()                                    
+                                                    
+                                                    # driver.get(pagination_url)
+                                                
+                                                elif next_page_tag == 'www.westlawnmotors.com':
+                                                    
+                                                    if inventory_url[-1] != '/':
+                                                        pagination_url = inventory_url + '/' + next_page_attr
+                                                    else:
+                                                        pagination_url = inventory_url + next_page_attr
+                                                    
+                                                    # driver.get(pagination_url)
+                                                    
+                                                elif next_page_tag == 'www.10kautosgreenville.com':
+                                                    
+                                                    if url[-1] != '/':
+                                                        pagination_url = url + next_page_attr
+                                                    else:
+                                                        pagination_url = url + next_page_attr[1:]
+                                                
+                                                elif next_page_tag == 'general_href':
+                                                    
+                                                    if inventory_url[-1] != '/':
+                                                        pagination_url = inventory_url + next_page_attr
+                                                    else:
+                                                        pagination_url = inventory_url[:-1] + next_page_attr
+                                                
+                                                # time.sleep(1)
+                                                
+                                                driver.get(pagination_url)
+                                                    
+                                                # next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                                
+                                                # driver.execute_script("arguments[0].click();", next_page_link)
+                                                
+                                                # time.sleep(1)
+                                                
+                                                pagination = True
+                                                
+                                                if next_page_enable:
+                                                    page_count += 1
+                                                
+                                                # pagination_url = driver.current_url
+                                                
+                                                # driver.delete_all_cookies()                                    
+                                                
+                                                # driver.get(pagination_url)
+                                                    
+                                            else:
+                                                    
+                                                with open(self.project_dir + 'log/pagination', 'a') as file_object:
+                                                    log_content = inventory_url + '  ' + str(page_count) + '\n'
+                                                    file_object.write(log_content)
+                                                    
+                                                pagination = False
+                                                
+                                                break
                                             
                                         else:
                                             
                                             log_content = inventory_url + ' ' + 'no vehicle'
-                                            self.insert_error_log(url.rstrip(), log_content)
+                                            self.insert_error_log(url, log_content)
                                             # break
+                                        
                                     else:
                                         
-                                        print (inventory_url_status_code)   
+                                        # print (inventory_url_status_code)   
                                         
                                         log_content = inventory_url + ' ' + str(inventory_url_status_code)
-                                        self.insert_error_log(url.rstrip(), log_content)   
+                                        self.insert_error_log(url, log_content)   
                                         break
+                                    
                                         
                                 except:
                                     
                                     log_content = inventory_url + ' ' + 'connection error'
-                                    self.insert_error_log(url.rstrip(), log_content)
+                                    self.insert_error_log(url, log_content)
                                     break
-                        
-                            next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                          
+                                
+                                inventory_url = driver.current_url
                             
-                            if next_page_tag != None and next_page_enable:
-                                
-                                # go to next page
-                                if next_page_tag == 'class':
-                                
-                                    next_page_link_script = '//*[@class="' + next_page_attr + '"]'
-                                    
-                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
-                                
-                                    driver.execute_script("arguments[0].click();", next_page_link)
-                                    
-                                    # time.sleep(1)
-                                    
-                                    pagination_url = driver.current_url
-                                
-                                    driver.delete_all_cookies()                                    
-                                    
-                                    # driver.get(pagination_url)
-                                
-                                elif next_page_tag == 'id':
-                                    
-                                    next_page_link_script = '//*[@id="' + next_page_attr + '"]'
-                                    
-                                    next_page_link = driver.find_element_by_xpath(next_page_link_script)
-                                
-                                    driver.execute_script("arguments[0].click();", next_page_link)
-                                    
-                                    # time.sleep(1)
-                                    
-                                    pagination_url = driver.current_url
-                                
-                                    driver.delete_all_cookies()                                    
-                                    
-                                    # driver.get(pagination_url)
-                                
-                                elif next_page_tag == 'www.westlawnmotors.com':
-                                    
-                                    if inventory_url[-1] != '/':
-                                        pagination_url = inventory_url + '/' + next_page_attr
-                                    else:
-                                        pagination_url = inventory_url + next_page_attr
-                                    
-                                    # driver.get(pagination_url)
-                                    
-                                elif next_page_tag == 'www.10kautosgreenville.com':
-                                    
-                                    if url.rstrip()[-1] != '/':
-                                        pagination_url = url.rstrip() + next_page_attr
-                                    else:
-                                        pagination_url = url.rstrip() + next_page_attr[1:]
-                                
-                                elif next_page_tag == 'general_href':
-                                    
-                                    if inventory_url[-1] != '/':
-                                        pagination_url = inventory_url + next_page_attr
-                                    else:
-                                        pagination_url = inventory_url[:-1] + next_page_attr
-                                 
-                                time.sleep(1)
-                                
-                                driver.get(pagination_url)
-                                    
-                                # next_page_link = driver.find_element_by_xpath(next_page_link_script)
-                                
-                                # driver.execute_script("arguments[0].click();", next_page_link)
-                                
-                                # time.sleep(1)
-                                
-                                pagination = True
-                                
-                                page_count += 1
-                                
-                                # pagination_url = driver.current_url
-                                
-                                # driver.delete_all_cookies()                                    
-                                
-                                # driver.get(pagination_url)
-                                    
-                            else:
-                                    
-                                with open(self.project_dir + 'log/pagination', 'a') as file_object:
-                                    log_content = inventory_url + '  ' + str(page_count) + '\n'
-                                    file_object.write(log_content)
-                                    
-                                pagination = False
-                                
-                                break
-                        else:
+                            total_vehicle_each_site += total_vehicle_each_inventory[inventory_count]
                             
-                            log_content = 'no inventory page match'
-                            
-                            print (log_content)
-                            
-                            self.insert_error_log(url.rstrip(), log_content)
-                            break            
+                            inventory_count += 1
+                              
+                            with open(self.project_dir + 'log/page_vehicle_count.txt', 'a') as file_object:
+                                content = vehicle_count_each_inventory + '\n'
+                                file_object.write(content)
+                                
                     else:
                         
-                        print (url_status_code)
+                        log_content = 'no inventory page match'
                         
-                        log_content = str(url_status_code)
-                        self.insert_error_log(url.rstrip(), log_content)
+                        # print (log_content)
                         
-                        break
-                            
+                        self.insert_error_log(url, log_content)
+                        break            
+                else:
+                    
+                    # print (url_status_code)
+                    
+                    log_content = str(url_status_code)
+                    self.insert_error_log(url, log_content)
+                    
+                    break
+                
+                with open(self.project_dir + 'log/page_vehicle_count.txt', 'a') as file_object:
+                    content = url + ' total vehicle:' + str(total_vehicle_each_site) + '\n'
+                    file_object.write(content)                
                     
             except KeyboardInterrupt:
                 break
@@ -841,9 +891,9 @@ class DwsCrawler(object):
             with open('log/vehicle_href.txt', 'a') as file_object:
                 
                 # remove duplicated vehicle page urls of list
-                # not_duplicated_detail_url_list = list(set(detail_url_list))
+                # not_duplicated_detail_url_list_each_site = list(set(detail_url_list_each_site))
                 
-                for detail_page_url in detail_url_list:
+                for detail_page_url in detail_url_list_each_site:
                     file_object.write("%s\n" % detail_page_url)
             
             i += 1  
