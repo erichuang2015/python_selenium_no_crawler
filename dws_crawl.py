@@ -2,7 +2,7 @@
 @ created_at: 2020-03-27
 @ created_by: BrightStar1120
 
-@ updated_at: 2020-03-27
+@ updated_at: 2020-04-05
 @ updated_by: BrightStar1120
 '''
 
@@ -37,7 +37,7 @@ class DwsCrawler(object):
         
         self.page_next_class = list()
         
-        # self.project_dir = '/var/crawler/' # Linux
+        # self.project_dir = '/var/crawler/' # centos
         self.project_dir = '' # windows
         
         self.initialize()
@@ -104,7 +104,8 @@ class DwsCrawler(object):
             "proxyType":"MANUAL",
         }    
         
-        driver = webdriver.Chrome(options = self.chrome_opt)
+        # driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+        driver = webdriver.Chrome(options = self.chrome_opt) # windows
         
         return driver
         
@@ -137,7 +138,7 @@ class DwsCrawler(object):
         if url_list_path != None:
             path = url_list_path
         else:
-            path = self.project_dir + "utilites/not_crawlable_urls_5000.txt"
+            path = self.project_dir + "utilites/urls_1000.txt"
         with open(path, "r") as file:
             self.not_crawlable_urls = file.readlines()    
             return True
@@ -445,6 +446,9 @@ class DwsCrawler(object):
                                     
                                     new_item_append = True
                                     
+                                    if detail_page.rstrip() == 'Detail.asp?':
+                                        href = 'http://weblot.walkthelot.com/Inventory/v5/' + href
+                                    
                                     detail_urls_inventory.append(href)
                         
                         break
@@ -487,7 +491,7 @@ class DwsCrawler(object):
         
     
     '''
-    @ description: check if pagniation is exist or not
+    @ description: check if pagination is exist or not
     '''
     def exist_pagination(self, html):
         
@@ -548,15 +552,14 @@ class DwsCrawler(object):
             "proxyType":"MANUAL",
         }    
         
-        driver = webdriver.Chrome(options = self.chrome_opt)
+        # driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+        driver = webdriver.Chrome( options = self.chrome_opt) # windows
         
         driver.set_page_load_timeout(30)
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
         i = 0
-        
-        self.not_crawlable_urls = ['https://www.markmitsubishiphoenix.com/']
         
         len_not_crawlable_url = len(self.not_crawlable_urls)
         
@@ -566,6 +569,8 @@ class DwsCrawler(object):
                 break
             
             url = self.not_crawlable_urls[i].rstrip()
+            
+            # total_vehicle_each_site = 0
             
             if url[0] != 'h':
                 url = 'http://' + url
@@ -586,7 +591,7 @@ class DwsCrawler(object):
                 
                 # while True:
                     
-                url_status_code = requests.get(pagination_url, verify=False).status_code
+                url_status_code = requests.get(pagination_url, verify=False, timeout=10).status_code
             
                 if (url_status_code == 200):
                     
@@ -604,6 +609,8 @@ class DwsCrawler(object):
                             break    
                     
                     if redirect_url:
+                        
+                        time.sleep(1)
                         
                         url = driver.current_url
 
@@ -624,10 +631,14 @@ class DwsCrawler(object):
                             
                         except:
                             
-                            pass
+                            # pass
+                            continue
                         
                     else:
                         self.tmp_inventory_href_list.append(pagination_url)
+                        
+                    # remove duplicated item in self.tmp_inventory_href_list
+                    self.tmp_inventory_href_list = list(set(self.tmp_inventory_href_list))
                     
                     if len(self.tmp_inventory_href_list) != 0:
                         
@@ -636,8 +647,6 @@ class DwsCrawler(object):
                         # print ('>>>>>>>>>>>>>>>>>1')
                         # print (self.tmp_inventory_href_list)
                         # print ('>>>>>>>>>>>>>>>>>1')
-                        
-                        total_vehicle_each_site = 0
                         
                         total_vehicle_each_inventory = list()
                         
@@ -680,13 +689,14 @@ class DwsCrawler(object):
                                     "proxyType":"MANUAL",
                                 }    
                                 
-                                driver = webdriver.Chrome(options = self.chrome_opt)
+                                # driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+                                driver = webdriver.Chrome(options = self.chrome_opt) # windows
                                 
                                 driver.set_page_load_timeout(30)
                                 
                                 try:
                                     
-                                    inventory_url_status_code = requests.get(inventory_url, verify=False).status_code
+                                    inventory_url_status_code = requests.get(inventory_url, verify=False, timeout=10).status_code
                                     
                                     if inventory_url_status_code == 200:
                                         
@@ -716,9 +726,9 @@ class DwsCrawler(object):
                                         
                                         if len(detail_url_in_each_inventory) != 0:
                                             
-                                            total_vehicle_each_inventory[inventory_count] += len(detail_url_in_each_inventory)
+                                            # total_vehicle_each_inventory[inventory_count] += len(detail_url_in_each_inventory)
                                             
-                                            vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count) + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count])
+                                            vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count) # + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count])
                                              
                                             # print (inventory_url_for_log + ' page: ' + str(page_count) + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count]))
                                             
@@ -781,26 +791,35 @@ class DwsCrawler(object):
                                                 
                                                 elif next_page_tag == 'www.westlawnmotors.com':
                                                     
-                                                    if inventory_url[-1] != '/':
-                                                        pagination_url = inventory_url + '/' + next_page_attr
+                                                    if 'http' in next_page_attr:
+                                                        pagination_url = next_page_attr
                                                     else:
-                                                        pagination_url = inventory_url + next_page_attr
+                                                        if inventory_url[-1] != '/':
+                                                            pagination_url = inventory_url + '/' + next_page_attr
+                                                        else:
+                                                            pagination_url = inventory_url + next_page_attr
                                                     
                                                     # driver.get(pagination_url)
                                                     
                                                 elif next_page_tag == 'www.10kautosgreenville.com':
                                                     
-                                                    if url[-1] != '/':
-                                                        pagination_url = url + next_page_attr
+                                                    if 'http' in next_page_attr:
+                                                        pagination_url = next_page_attr
                                                     else:
-                                                        pagination_url = url + next_page_attr[1:]
+                                                        if url[-1] != '/':
+                                                            pagination_url = url + next_page_attr
+                                                        else:
+                                                            pagination_url = url + next_page_attr[1:]
                                                 
                                                 elif next_page_tag == 'general_href':
                                                     
-                                                    if inventory_url[-1] != '/':
-                                                        pagination_url = inventory_url + next_page_attr
+                                                    if 'http' in next_page_attr:
+                                                        pagination_url = next_page_attr
                                                     else:
-                                                        pagination_url = inventory_url[:-1] + next_page_attr
+                                                        if inventory_url[-1] != '/':
+                                                            pagination_url = inventory_url + next_page_attr
+                                                        else:
+                                                            pagination_url = inventory_url[:-1] + next_page_attr
                                                 
                                                 # time.sleep(1)
                                                 
@@ -825,9 +844,9 @@ class DwsCrawler(object):
                                                     
                                             else:
                                                     
-                                                with open(self.project_dir + 'log/pagination', 'a') as file_object:
-                                                    log_content = inventory_url + '  ' + str(page_count) + '\n'
-                                                    file_object.write(log_content)
+                                                # with open(self.project_dir + 'log/pagination', 'a') as file_object:
+                                                #     log_content = inventory_url + '  ' + str(page_count) + '\n'
+                                                #     file_object.write(log_content)
                                                     
                                                 pagination = False
                                                 
@@ -837,7 +856,7 @@ class DwsCrawler(object):
                                             
                                             log_content = inventory_url + ' ' + 'no vehicle'
                                             self.insert_error_log(url, log_content)
-                                            # break
+                                            break
                                         
                                     else:
                                         
@@ -848,19 +867,20 @@ class DwsCrawler(object):
                                         break
                                     
                                         
-                                except:
+                                except requests.exceptions.RequestException:
                                     
                                     log_content = inventory_url + ' ' + 'connection error'
                                     self.insert_error_log(url, log_content)
-                                    break
+                                    # break
+                                    continue
                                 
                                 inventory_url = driver.current_url
                             
-                            total_vehicle_each_site += total_vehicle_each_inventory[inventory_count]
+                            # total_vehicle_each_site += total_vehicle_each_inventory[inventory_count]
                             
                             inventory_count += 1
                               
-                            with open(self.project_dir + 'log/page_vehicle_count.txt', 'a') as file_object:
+                            with open(self.project_dir + 'log/inventory_page_count.txt', 'a') as file_object:
                                 content = vehicle_count_each_inventory + '\n'
                                 file_object.write(content)
                                 
@@ -871,7 +891,7 @@ class DwsCrawler(object):
                         # print (log_content)
                         
                         self.insert_error_log(url, log_content)
-                        break            
+                        # break            
                 else:
                     
                     # print (url_status_code)
@@ -879,28 +899,44 @@ class DwsCrawler(object):
                     log_content = str(url_status_code)
                     self.insert_error_log(url, log_content)
                     
-                    break
+                    # write not available url
+                    with open(self.project_dir + '/log/status_error.txt', 'a') as file_object:
+                        content = url + '\n'
+                        file_object.write(content)
+                    
+                    # break
                 
-                with open(self.project_dir + 'log/page_vehicle_count.txt', 'a') as file_object:
-                    content = url + ' total vehicle:' + str(total_vehicle_each_site) + '\n'
-                    file_object.write(content)                
+                # with open(self.project_dir + 'log/page_vehicle_count.txt', 'a') as file_object:
+                #     content = url + ' total vehicle:' + str(total_vehicle_each_site) + '\n'
+                #     file_object.write(content) 
+                                   
+                with open(self.project_dir + 'log/vehicle_href.txt', 'a') as file_object:
+                
+                    # remove duplicated vehicle page urls of list
+                    # not_duplicated_detail_url_list_each_site = list(set(detail_url_list_each_site))
+                    
+                    for detail_page_url in detail_url_list_each_site:
+                        file_object.write("%s\n" % detail_page_url)
+                
+                
+                with open(self.project_dir + 'log/processed_url_counts.txt', 'w') as file_object:
+                    log_content = str(len_not_crawlable_url) + ' / ' + str(i) + '\n'
+                    file_object.write(log_content)   
                     
             except KeyboardInterrupt:
                 break
+            except requests.exceptions.RequestException:
+                
+                log_content = 'connection timeout'
+                self.insert_error_log(url, log_content)
+                
+                pass
+            else:
+                continue
+            
+            i += 1
                     
-            with open('log/vehicle_href.txt', 'a') as file_object:
-                
-                # remove duplicated vehicle page urls of list
-                # not_duplicated_detail_url_list_each_site = list(set(detail_url_list_each_site))
-                
-                for detail_page_url in detail_url_list_each_site:
-                    file_object.write("%s\n" % detail_page_url)
             
-            i += 1  
-            
-            with open(self.project_dir + 'log/processed_url_counts.txt', 'w') as file_object:
-                log_content = str(len_not_crawlable_url) + ' / ' + str(i) + '\n'
-                file_object.write(log_content)   
 
 start_time = time.time()
                 
@@ -912,4 +948,9 @@ dc.get_proxy_list()
 # run main crawler function
 dc.crawl_func()
 
-print("--- %s seconds ---" % (time.time() - start_time))
+exectuion_time = time.time() - start_time
+print("--- %s seconds ---" % exectuion_time)
+
+with open('/var/crawler/log/execution_time.txt', 'w') as file_object:
+    content = str(exectuion_time)
+    file_object.write(content)
