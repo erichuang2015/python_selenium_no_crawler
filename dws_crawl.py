@@ -296,11 +296,12 @@ class DwsCrawler(object):
         else:
             path = self.project_dir + "utilites/page_next_pattern.txt"
             
-        with open(path, "r") as file:
-            self.page_next_class = file.readlines()    
-            return True
-
-        return False
+        data = open(path, encoding='utf-8-sig')
+        
+        for each_line in data:
+            self.page_next_class.append(each_line)
+        
+        return True
     
     '''
     '''
@@ -552,7 +553,7 @@ class DwsCrawler(object):
         
         self.set_chrome_option()
         
-        
+        self.not_crawlable_urls = ['http://firststopautova.com']
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
@@ -662,9 +663,9 @@ class DwsCrawler(object):
                         
                         next_page_enable = True
                         
-                        # print ('>>>>>>>>>>>>>>>>>1')
-                        # print (self.tmp_inventory_href_list)
-                        # print ('>>>>>>>>>>>>>>>>>1')
+                        print ('>>>>>>>>>>>>>>>>>1')
+                        print (self.tmp_inventory_href_list)
+                        print ('>>>>>>>>>>>>>>>>>1')
                         
                         total_vehicle_each_inventory = list()
                         
@@ -692,6 +693,10 @@ class DwsCrawler(object):
                             
                             vehicle_count_each_inventory = '0'
                             
+                            # loop for each page
+                            # ii = 0
+                            page_url_changed = True
+                            
                             while True:
                                 
                                 # time.sleep(1)
@@ -700,47 +705,59 @@ class DwsCrawler(object):
                                 
                                 # driver.delete_all_cookies()
                                     
-                                proxy_http = "http://" + self.get_random_proxy()        
+                                # proxy_http = "http://" + self.get_random_proxy()        
                         
-                                webdriver.DesiredCapabilities.CHROME['proxy'] = {
-                                    "httpProxy":proxy_http,
-                                    "ftpProxy":proxy_http,
-                                    "sslProxy":proxy_http,
-                                    "proxyType":"MANUAL",
-                                }    
+                                # webdriver.DesiredCapabilities.CHROME['proxy'] = {
+                                #     "httpProxy":proxy_http,
+                                #     "ftpProxy":proxy_http,
+                                #     "sslProxy":proxy_http,
+                                #     "proxyType":"MANUAL",
+                                # }    
                                 
-                                if self.os == "windows":
-                                    driver = webdriver.Chrome(options = self.chrome_opt) # centos
-                                else:
-                                    driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+                                # if self.os == "windows":
+                                #     driver = webdriver.Chrome(options = self.chrome_opt) # centos
+                                # else:
+                                #     driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
                                 
-                                driver.set_page_load_timeout(30)
+                                # driver.set_page_load_timeout(30)
                                 
                                 try:
                                     
+                                    print ('>>>>123', inventory_url ,'321>>>>>')
+                                    
                                     inventory_url_status_code = requests.get(inventory_url, verify=False, timeout=30).status_code
+                                    
+                                    print ('<><>><><>><><><><><>')
+                                    print (str(inventory_url_status_code))
                                     
                                     if inventory_url_status_code == 200:
                                         
                                         # time.sleep(1)
                                         try:
                                             
-                                            proxy_http = "http://" + self.get_random_proxy()        
-                        
-                                            webdriver.DesiredCapabilities.CHROME['proxy'] = {
-                                                "httpProxy":proxy_http,
-                                                "ftpProxy":proxy_http,
-                                                "sslProxy":proxy_http,
-                                                "proxyType":"MANUAL",
-                                            }    
-                                            
-                                            if self.os == "windows":
-                                                driver = webdriver.Chrome(options = self.chrome_opt) # centos
-                                            else:
-                                                driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
-                                            
-                                        
-                                            driver.get(inventory_url)
+                                            if page_url_changed == True:
+                                                
+                                                proxy_http = "http://" + self.get_random_proxy()        
+                            
+                                                webdriver.DesiredCapabilities.CHROME['proxy'] = {
+                                                    "httpProxy":proxy_http,
+                                                    "ftpProxy":proxy_http,
+                                                    "sslProxy":proxy_http,
+                                                    "proxyType":"MANUAL",
+                                                }    
+                                                
+                                                if self.os == "windows":
+                                                    driver = webdriver.Chrome(options = self.chrome_opt) # centos
+                                                else:
+                                                    driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+                                                
+                                                driver.set_page_load_timeout(30)
+
+                                                
+                                                driver.get(inventory_url)
+                                                
+                                                print ('-------  driver.get(inventory_url)  -------')
+                                                print (inventory_url)
                                             
                                             SCROLL_PAUSE_TIME = 0.5
                                             
@@ -751,14 +768,36 @@ class DwsCrawler(object):
                                             time.sleep(SCROLL_PAUSE_TIME)
             
                                             inventory_url = driver.current_url
-                                        
+                                            
                                             vehicle_element = driver.find_element_by_tag_name('html')                                
                                             
-                                            vehicle_html = vehicle_element.get_attribute('innerHTML')                                
+                                            vehicle_html = vehicle_element.get_attribute('innerHTML')      
+                                            
+                                            print (vehicle_html[:100])
+                                            # with open('log/' + )                        
                                             
                                             # time.sleep(1)
                                             
                                             next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
+                                            
+                                            
+                                            if len(detail_url_in_each_inventory) == 0:
+                                                
+                                                driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+                                                vehicle_element = driver.find_element_by_tag_name('html')                                
+                                                
+                                                vehicle_html = vehicle_element.get_attribute('innerHTML')                              
+                                                
+                                                # time.sleep(1)
+                                                
+                                                next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
+                                            
+                                            
+                                            print ('>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+                                            print (next_page_enable, detail_url_in_each_inventory)
+                                            
+                                            print (str(len(detail_url_in_each_inventory)))
+                                            print ('>>>>>>>>>>>>>>>>>>>>>>>>>>>')
                                             
                                             # print ('>>>>>>>>2')
                                             # print (detail_url_in_each_inventory)
@@ -790,14 +829,19 @@ class DwsCrawler(object):
                                                     if vehicle_url not in detail_url_list_each_site and inventory_url != vehicle_url:
                                                         detail_url_list_each_site.append(vehicle_url)
                                                         
-                                                        
+                                                with open('log/vehicle_html', 'w') as file_object:
+                                                    file_object.write(vehicle_html)
                                                 # pagination
                                                 next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                          
-                                    
+
+                                                print ('>>>>', next_page_tag, '>>>>>>>>', next_page_attr)
+                                                
                                                 if next_page_tag != None and next_page_enable:
                                                     
                                                     # go to next page
                                                     if next_page_tag == 'class':
+                                                        
+                                                        print ('>>>>>>>>>  here  >>>>>>>>>>..')
                                                     
                                                         next_page_link_script = '//*[@class="' + next_page_attr + '"]'
                                                         
@@ -807,7 +851,7 @@ class DwsCrawler(object):
                                                         
                                                         time.sleep(1)
                                                         
-                                                        pagination_url = driver.current_url
+                                                        # pagination_url = driver.current_url
                                                     
                                                         # driver.delete_all_cookies()       
                                                         
@@ -825,7 +869,9 @@ class DwsCrawler(object):
                                                         
                                                         time.sleep(1)
                                                         
-                                                        pagination_url = driver.current_url
+                                                        # pagination_url = driver.current_url
+                                                        
+                                                        print ('>>>>>',  pagination_url,  '>>>>>>>')
                                                     
                                                         # driver.delete_all_cookies()         
                                                         
@@ -867,44 +913,60 @@ class DwsCrawler(object):
                                                     
                                                     time.sleep(1)
                                                     
-                                                    try:
-                                                        proxy_http = "http://" + self.get_random_proxy()        
-                        
-                                                        webdriver.DesiredCapabilities.CHROME['proxy'] = {
-                                                            "httpProxy":proxy_http,
-                                                            "ftpProxy":proxy_http,
-                                                            "sslProxy":proxy_http,
-                                                            "proxyType":"MANUAL",
-                                                        }    
-                                                        
-                                                        if self.os == "windows":
-                                                            driver = webdriver.Chrome(options = self.chrome_opt) # centos
-                                                        else:
-                                                            driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
-                                                        
-                                                        driver.get(pagination_url)
+                                                    current_url = driver.current_url
+                                                    
+                                                    print ('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                                                    print('----- url : ', inventory_url)
+                                                    print('----- url : ', current_url)
+                                                    print ('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                                                    
+                                                    if inventory_url != current_url:
+                                                    
+                                                        try:
+                                                            proxy_http = "http://" + self.get_random_proxy()        
+                            
+                                                            webdriver.DesiredCapabilities.CHROME['proxy'] = {
+                                                                "httpProxy":proxy_http,
+                                                                "ftpProxy":proxy_http,
+                                                                "sslProxy":proxy_http,
+                                                                "proxyType":"MANUAL",
+                                                            }    
                                                             
-                                                        # next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                                            if self.os == "windows":
+                                                                driver = webdriver.Chrome(options = self.chrome_opt) # centos
+                                                            else:
+                                                                driver = webdriver.Chrome('/usr/local/bin/chromedriver', options = self.chrome_opt) # centos
+                                                            
+                                                            
+                                                            
+                                                            page_url_changed = True
+                                                                
+                                                            # next_page_link = driver.find_element_by_xpath(next_page_link_script)
+                                                            
+                                                            # driver.execute_script("arguments[0].click();", next_page_link)
+                                                            
+                                                            # time.sleep(1)
+                                                            
+                                                            
+                                                            
+                                                            pagination_url = driver.current_url
+                                                            
+                                                            driver.get(pagination_url)
+                                                            
+                                                            # driver.delete_all_cookies()                                    
+                                                            
+                                                            # driver.get(pagination_url)
+                                                        except TimeoutException:
+                                                            log_content = pagination_url + ' ' + 'Each Page load Timeout Occured.'
+                                                            self.insert_error_log(url, log_content)
+                                                            break
+                                                    else:
+                                                        page_url_changed = False
                                                         
-                                                        # driver.execute_script("arguments[0].click();", next_page_link)
-                                                        
-                                                        # time.sleep(1)
-                                                        
-                                                        pagination = True
-                                                        
-                                                        if next_page_enable:
-                                                            page_count += 1
-                                                        
-                                                        # pagination_url = driver.current_url
-                                                        
-                                                        # driver.delete_all_cookies()                                    
-                                                        
-                                                        # driver.get(pagination_url)
-                                                    except TimeoutException:
-                                                        log_content = pagination_url + ' ' + 'Each Page load Timeout Occured.'
-                                                        self.insert_error_log(url, log_content)
-                                                        break
-                                                        
+                                                    pagination = True
+                                                            
+                                                    if next_page_enable:
+                                                        page_count += 1    
                                                 else:
                                                         
                                                     # with open(self.project_dir + 'log/pagination', 'a') as file_object:
@@ -958,13 +1020,13 @@ class DwsCrawler(object):
                         
                         log_content = 'no inventory page match'
                         
-                        # print (log_content)
+                        print (log_content)
                         
                         self.insert_error_log(url, log_content)
                         # break            
                 else:
                     
-                    # print (url_status_code)
+                    print (url_status_code)
                     
                     log_content = str(url_status_code)
                     self.insert_error_log(url, log_content)
