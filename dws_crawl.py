@@ -387,7 +387,7 @@ class DwsCrawler(object):
     '''
     '''
     def get_detail_page_href_list(self, inventory_href, vehicle_html, detail_url_in_each_inventory):
-        
+            
         html_content = vehicle_html
         html_content = re.sub('\s+', ' ', html_content)
         html_content = re.sub('\<\/a\>', '</a>\n', html_content)
@@ -400,7 +400,6 @@ class DwsCrawler(object):
         # regex to get any content of a tag
         matched_result_pattern2 = re.compile('\<a\s*.*(href\s*\=\s*\"*\'*.*\"*\'*.*\>.*\<\/a\>)')
         
-        
         detail_urls_inventory = detail_url_in_each_inventory
         
         new_item_append = False
@@ -408,29 +407,20 @@ class DwsCrawler(object):
         match_1 = False
         
         # for matched_result in matched_result_list2:
-        for x in matched_result_pattern1.finditer(html_content):
+        for x in matched_result_pattern1.finditer(html_content):            
             
             matched_result = x.groups()[0]
             
             href = self.extract_href(matched_result)            
-            
-            for detail_page in self.detail_page_urls:
                 
-                if href != inventory_href and detail_page.rstrip() in href:
+            if href != inventory_href and href not in detail_urls_inventory:
                     
-                    for not_detail_page in self.not_detail_url_content:
+                match_1 = True
+                
+                new_item_append = True
+                
+                detail_urls_inventory.append(href)
                     
-                        if not_detail_page.rstrip() not in href:
-                            
-                            if href not in detail_urls_inventory:
-                                
-                                match_1 = True
-                                
-                                new_item_append = True
-                                
-                                detail_urls_inventory.append(href)
-                    
-                    break
         
         if match_1 == False:
             # for matched_result in matched_result_list2:
@@ -509,7 +499,10 @@ class DwsCrawler(object):
             
             if next_pattern_removed_space in html_removed_space_and_enter_key:
                 
-                if next_pattern == '>next</a> »</span>':
+                if next_pattern == '<select class="ListingsDropdown" name="page"':
+                    return 'www.rgmotorsinc.com', 'page'
+                    
+                elif next_pattern_removed_space == '>next</a>»</span>':
                     
                     return 'www.10kautosgreenville.com', self.extract_front_href(next_pattern_removed_space, html_removed_space_and_enter_key)
             
@@ -547,7 +540,7 @@ class DwsCrawler(object):
         
         self.set_chrome_option()
         
-        self.not_crawlable_urls = ['https://www.faulknertoyotatrevose.com/']
+        self.not_crawlable_urls = ['https://www.rgmotorsinc.com/']
         
         # columns = ['Type', 'Title', 'VIN', 'Price', 'Mileage', 'Year', 'Make', 'Model', 'Trim']
         
@@ -656,9 +649,7 @@ class DwsCrawler(object):
                             
                             total_vehicle_each_inventory.append(0)
                             
-                            page_count = 1
-                            
-                            inventory_page_unset_iframe = True
+                            page_count = 1                            
                         
                             if 'http' in inventory_href:
                                 inventory_url = inventory_href
@@ -725,24 +716,27 @@ class DwsCrawler(object):
                                             next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
                                             
                                             # in case vehicle url not in html (only in iframe) or not changed after next button clicked due to didn't come into iframe
-                                            if 'iframe' in vehicle_html:    
+                                            if 'iframe' in vehicle_html and len(detail_url_in_each_inventory) == 0:    
                                                 
-                                                # get iframe src
-                                                script = 'return document.getElementsByTagName("iframe")[0].getAttribute("src")'
-                                                iframe_src = driver.execute_script(script)
+                                                try:
+                                                    # get iframe src
+                                                    script = 'return document.getElementsByTagName("iframe")[0].getAttribute("src")'
+                                                    iframe_src = driver.execute_script(script)
+                                                    
+                                                    time.sleep(1)
+                                                    
+                                                    driver.get(iframe_src)
+                                                    
+                                                    inventory_url = driver.current_url                                                                                                
+                                                    
+                                                    vehicle_element = driver.find_element_by_tag_name('html')                                
+                                                    
+                                                    vehicle_html = vehicle_element.get_attribute('innerHTML')
+                                                    
+                                                    next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
                                                 
-                                                time.sleep(1)
-                                                
-                                                driver.get(iframe_src)
-                                                
-                                                inventory_url = driver.current_url                                                                                                
-                                                
-                                                vehicle_element = driver.find_element_by_tag_name('html')                                
-                                                
-                                                vehicle_html = vehicle_element.get_attribute('innerHTML')
-                                                
-                                                next_page_enable, detail_url_in_each_inventory = self.get_detail_page_href_list(inventory_href, vehicle_html, detail_url_in_each_inventory)                                        
-                                            
+                                                except:
+                                                    pass
                                             
                                             if len(detail_url_in_each_inventory) != 0:
                                                 
@@ -761,8 +755,8 @@ class DwsCrawler(object):
                                                     if vehicle_url not in detail_url_list_each_site and inventory_url != vehicle_url:
                                                         detail_url_list_each_site.append(vehicle_url)
                                                         
-                                                next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)                          
-
+                                                next_page_tag, next_page_attr = self.exist_pagination(vehicle_html)  
+                                                
                                                 if next_page_tag != None and next_page_enable:
                                                     
                                                     vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count) # + ',  vehicle: ' + str(total_vehicle_each_inventory[inventory_count])
@@ -813,6 +807,17 @@ class DwsCrawler(object):
                                                                 pagination_url = inventory_url + next_page_attr
                                                             else:
                                                                 pagination_url = inventory_url[:-1] + next_page_attr
+                                                                
+                                                    elif next_page_tag == 'www.rgmotorsinc.com': # select box                                                        
+                                                        
+                                                        try:
+                                                            find_option_text_script = 'return document.getElementsByName("page")[0].getElementsByTagName("option")[1].getElementsByTagName("a")[' + str(page_count - 1) + '].textContent'
+                                                            option_text = driver.execute_script(find_option_text_script)
+                                                            
+                                                            driver.find_element_by_xpath("//select[@name='page']/option[text()='" + option_text + "']").click()
+                                                        
+                                                        except:
+                                                            pass
                                                     
                                                     time.sleep(1)
                                                     
@@ -852,8 +857,10 @@ class DwsCrawler(object):
                                                             
                                                     if next_page_enable:
                                                         page_count += 1    
+                                                        vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count)
                                                 else:
-                                                        
+                                                    page_count -= 1
+                                                    vehicle_count_each_inventory = inventory_url_for_log + ' page: ' + str(page_count)    
                                                     pagination = False
                                                     
                                                     break
